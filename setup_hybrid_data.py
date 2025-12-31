@@ -8,15 +8,18 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from neo4j import GraphDatabase
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configuration
-API_KEY = "AIzaSyDM8-7TmlsEOSQ9RBNuraiXfuw-IO_gHXI"
+API_KEY = os.getenv("GOOGLE_API_KEY")
 CHROMA_PERSIST_DIR = "./chroma_db"
-CHROMA_COLLECTION_NAME = "hybrid_rag_collection"
-NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "Qwer@1234"
-NEO4J_DATABASE = "company"
+CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION")
+NEO4J_URI = os.getenv("NEO4J_URI")
+NEO4J_USER = os.getenv("NEO4J_USER")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
+NEO4J_DATABASE = os.getenv("NEO4J_DATABASE")
 
 
 def setup_neo4j():
@@ -251,9 +254,9 @@ if __name__ == "__main__":
     print()
     
     try:
-        # setup_neo4j()
+        setup_neo4j()
         setup_chromadb()
-        # verify_setup()
+        verify_setup()
         
         print("\n" + "="*70)
         print("SUCCESS! Both databases are ready.")
