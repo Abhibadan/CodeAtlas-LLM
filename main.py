@@ -1,15 +1,11 @@
 from fastapi import FastAPI, Query, Body
 from fastapi.responses import StreamingResponse
-from dbModule.VectorStore import VectorStore
-from dbModule.GraphStore import GraphStore
 from requestDTOs.chatDTO import ChatDTO
 from middleware.authMiddleware import AuthMiddleware
-from langchain_google_genai import ChatGoogleGenerativeAI
-from config import config
+from components.ragAgent import RagAgent
 
 app = FastAPI()
-vectorStore = VectorStore(config["CHROMA_HOST"],config["CHROMA_PORT"],config["CHROMA_COLLECTION"],config["EMBEDDING_MODEL"],config["GOOGLE_API_KEY"])
-graphStore = GraphStore(config["NEO4J_URI"],config["NEO4J_USER"],config["NEO4J_PASSWORD"],config["NEO4J_DATABASE"])
+agent = RagAgent()
 
 # app.add_middleware(AuthMiddleware)
 
@@ -22,14 +18,22 @@ def read_root():
 @app.post("/chat")
 def chat(data: ChatDTO = Body(...)):
     question = data.query
-    vectorData = vectorStore.retrieve(question)
-    llm = ChatGoogleGenerativeAI(
-        model=config["CHAT_MODEL"],
-        google_api_key=config["GOOGLE_API_KEY"]
+    
+    async def generate_sse():
+        for chunk in agent.getRagChain().stream(question):
+            # Format each chunk as SSE data
+            yield f"data: {chunk}\n\n"
+        # Send a done signal
+        yield "data: [DONE]\n\n"
+    
+    return StreamingResponse(
+        generate_sse(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
     )
-    cypherQuery = graphStore.retrieve(llm,question)
-    # graphStore.execute_query(cypherQuery)
-    return {"query": question,"vectorData":vectorData,"cypherQuery":cypherQuery}
 
 
 

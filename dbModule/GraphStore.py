@@ -82,33 +82,31 @@ class GraphStore:
         
         return self._schema_cache
     
-    def generate_cypher_query(self, llm, question: str) -> str:
+    def generate_cypher_query(self, llm, question: str,details: str) -> str:
         """Use LLM to generate a Cypher query based on schema and question"""
         
         schema = self.get_schema()
-        print("\n\n Schema: ",schema)
         prompt = f"""You are a Neo4j Cypher query expert. Generate a Cypher query to answer the user's question based on the database schema provided.
                     DATABASE SCHEMA:
                     {schema}
                     USER QUESTION: {question}
-
+                    USER DETAILS: {details}
                     IMPORTANT RULES:
                     1. Only use node labels, relationship types, and properties that exist in the schema
-                    2. Use regex to match if the target property of node is suitable for search by regex, like name, address etc.
-                    3. Return meaningful data that helps answer the question
-                    4. Use OPTIONAL MATCH for relationships that may not exist
-                    5. Include relevant properties in the RETURN clause
-                    6. Use appropriate aggregation functions like collect() for multiple relationships
-                    7. Make queries case-insensitive for name searches using toLower()
-                    8. Return data in a structured format with clear aliases
-                    9. If the question is about referrals or connections, explore friend-of-friend relationships
-                    10. ONLY output the Cypher query, no explanations
+                    2. Return meaningful data that helps answer the question
+                    3. Use OPTIONAL MATCH for relationships that may not exist
+                    4. Include relevant properties in the RETURN clause
+                    5. Use appropriate aggregation functions like collect() for multiple relationships
+                    6. Make queries case-insensitive for name searches using toLower()
+                    7. Return data in a structured format with clear aliases
+                    8. If the question is about referrals or connections, explore friend-of-friend relationships
+                    9. ONLY output the Cypher query, no explanations
 
                     CYPHER QUERY:"""
+
         try:
             response = llm.invoke(prompt)
             query = response.content.strip()
-            print("\n\n Query: ",query)
             # Clean up the query - remove markdown code blocks if present
             if query.startswith("```"):
                 lines = query.split("\n")
@@ -119,8 +117,7 @@ class GraphStore:
             
             return query
         except Exception as e:
-            print(f"Error generating Cypher query: {e}")
-            return None
+            raise Exception(f"Error generating Cypher query: {e}")
     
     def execute_query(self, query: str) -> List[Dict[str, Any]]:
         """Execute a Cypher query and return results"""
@@ -133,15 +130,12 @@ class GraphStore:
                 records = [record.data() for record in result]
                 return records
             except Exception as e:
-                print(f"Error executing Cypher query: {e}")
-                print(f"Query was: {query}")
-                return []
+                raise Exception(f"Error executing Cypher query: {e}")
     
     def format_results(self, results: List[Dict[str, Any]], query: str) -> str:
         """Format query results into readable text"""
         if not results:
             return ""
-        
         parts = ["=== KNOWLEDGE GRAPH RESULTS ==="]
         parts.append(f"Query executed: {query[:100]}..." if len(query) > 100 else f"Query executed: {query}")
         parts.append(f"Found {len(results)} result(s)\n")
@@ -167,27 +161,26 @@ class GraphStore:
                 else:
                     parts.append(f"{key}: {value}")
             parts.append("")
-        
+
         return "\n".join(parts)
     
-    def retrieve(self, llm, question: str) -> str:
+    def retrieve(self, llm, question: str,details: str) -> str:
         """Main retrieval method that generates and executes dynamic Cypher queries"""
-        # Generate Cypher query using LLM
-        print(f"\n\n\n[Neo4j] Question: {question}\n")
-        cypher_query = self.generate_cypher_query(llm,question)
-        print(f"\n\n\n[Neo4j] Generated Cypher Query:\n{cypher_query}\n")
-        
-        if not cypher_query:
-            return ""
-        
-        
-        # Execute the query
-        results = self.execute_query(cypher_query)
+        try:
+            # Generate Cypher query using LLM
+            cypher_query = self.generate_cypher_query(llm,question,details)
+            if not cypher_query:
+                return ""
+            
+            
+            # Execute the query
+            results = self.execute_query(cypher_query)
 
-        print(f"\n\n\n[Neo4j] Query Results:\n{results}\n")
-        
-        # Format and return results
-        return self.format_results(results, cypher_query)
+            
+            # Format and return results
+            return self.format_results(results, cypher_query)
+        except Exception as e:
+            raise Exception(e.__str__())
 
             
     

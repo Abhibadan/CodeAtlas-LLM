@@ -32,5 +32,15 @@ class VectorStore:
     def add_documents(self, documents):
         self.client.add(documents)
     
-    def retrieve(self, query, k=4) -> List[Document]:
+    def format_docs(self,docs):
+        """Format retrieved documents from ChromaDB"""
+        if not docs:
+            return ""
+        return "\n\n=== DETAILED INFORMATION FROM DOCUMENTS ===\n" + "\n\n".join(doc.page_content for doc in docs)
+    
+    def retrieve_raw(self, query, k=4) -> List[Document]:
         return self.client.similarity_search(query, k=k)
+    
+    def retrieve(self, query, k=4) -> List[Document]:
+        docs = self.retrieve_raw(query, k=k)
+        return self.format_docs(docs)
