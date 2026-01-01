@@ -1,4 +1,8 @@
 from neo4j import GraphDatabase
+from typing import List, Dict, Any, Generator
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+import json
 
 class GraphStore:
     __instance = None
@@ -26,85 +30,85 @@ class GraphStore:
         with self.driver.session(database=self.database) as session:
             schema_parts = []
         
-        # Get node labels and their properties
-        node_info = session.run("""
-            CALL db.schema.nodeTypeProperties() 
-            YIELD nodeLabels, propertyName, propertyTypes
-            RETURN nodeLabels, collect({property: propertyName, types: propertyTypes}) as properties
-        """)
+            # Get node labels and their properties
+            node_info = session.run("""
+                CALL db.schema.nodeTypeProperties() 
+                YIELD nodeLabels, propertyName, propertyTypes
+                RETURN nodeLabels, collect({property: propertyName, types: propertyTypes}) as properties
+            """)
 
-        schema_parts.append("=== NODE LABELS AND PROPERTIES ===")
-        for record in node_info:
-            labels = record["nodeLabels"]
-            properties = record["properties"]
-            label_str = ":".join(labels) if labels else "Unknown"
-            props = [f"{p['property']} ({', '.join(p['types']) if p['types'] else 'any'})" 
-                    for p in properties if p['property']]
-            schema_parts.append(f"({label_str}) - Properties: {', '.join(props) if props else 'none'}")
-        
-        # Get relationship types and their properties
-        rel_info = session.run("""
-            CALL db.schema.relTypeProperties()
-            YIELD relType, propertyName, propertyTypes
-            RETURN relType, collect({property: propertyName, types: propertyTypes}) as properties
-        """)
+            schema_parts.append("=== NODE LABELS AND PROPERTIES ===")
+            for record in node_info:
+                labels = record["nodeLabels"]
+                properties = record["properties"]
+                label_str = ":".join(labels) if labels else "Unknown"
+                props = [f"{p['property']} ({', '.join(p['types']) if p['types'] else 'any'})" 
+                        for p in properties if p['property']]
+                schema_parts.append(f"({label_str}) - Properties: {', '.join(props) if props else 'none'}")
+            
+            # Get relationship types and their properties
+            rel_info = session.run("""
+                CALL db.schema.relTypeProperties()
+                YIELD relType, propertyName, propertyTypes
+                RETURN relType, collect({property: propertyName, types: propertyTypes}) as properties
+            """)
 
-        schema_parts.append("\n=== RELATIONSHIP TYPES AND PROPERTIES ===")
-        for record in rel_info:
-            rel_type = record["relType"]
-            properties = record["properties"]
-            props = [f"{p['property']} ({', '.join(p['types']) if p['types'] else 'any'})" 
-                    for p in properties if p['property']]
-            schema_parts.append(f"[{rel_type}] - Properties: {', '.join(props) if props else 'none'}")
-        
-        #Get relationship patterns (which nodes connect to which)
-        patterns = session.run("""
-            CALL db.schema.visualization() YIELD nodes, relationships
-            UNWIND relationships as rel
-            RETURN DISTINCT 
-                [label IN labels(startNode(rel)) | label] as startLabels,
-                type(rel) as relType,
-                [label IN labels(endNode(rel)) | label] as endLabels
-        """)
-        
-        schema_parts.append("\n=== RELATIONSHIP PATTERNS ===")
-        for record in patterns:
-            start = ":".join(record["startLabels"]) if record["startLabels"] else "Node"
-            rel = record["relType"]
-            end = ":".join(record["endLabels"]) if record["endLabels"] else "Node"
-            schema_parts.append(f"({start})-[:{rel}]->({end})")
-        
-        self._schema_cache = "\n".join(schema_parts)
+            schema_parts.append("\n=== RELATIONSHIP TYPES AND PROPERTIES ===")
+            for record in rel_info:
+                rel_type = record["relType"]
+                properties = record["properties"]
+                props = [f"{p['property']} ({', '.join(p['types']) if p['types'] else 'any'})" 
+                        for p in properties if p['property']]
+                schema_parts.append(f"[{rel_type}] - Properties: {', '.join(props) if props else 'none'}")
+            
+            # Get relationship patterns (which nodes connect to which)
+            patterns = session.run("""
+                CALL db.schema.visualization() YIELD nodes, relationships
+                UNWIND relationships as rel
+                RETURN DISTINCT 
+                    [label IN labels(startNode(rel)) | label] as startLabels,
+                    type(rel) as relType,
+                    [label IN labels(endNode(rel)) | label] as endLabels
+            """)
+            
+            schema_parts.append("\n=== RELATIONSHIP PATTERNS ===")
+            for record in patterns:
+                start = ":".join(record["startLabels"]) if record["startLabels"] else "Node"
+                rel = record["relType"]
+                end = ":".join(record["endLabels"]) if record["endLabels"] else "Node"
+                schema_parts.append(f"({start})-[:{rel}]->({end})")
+            
+            self._schema_cache = "\n".join(schema_parts)
         
         return self._schema_cache
     
-    def generate_cypher_query(self, question: str) -> str:
+    def generate_cypher_query(self, llm, question: str) -> str:
         """Use LLM to generate a Cypher query based on schema and question"""
-        if not self.llm:
-            return None
         
         schema = self.get_schema()
-        
+        print("\n\n Schema: ",schema)
         prompt = f"""You are a Neo4j Cypher query expert. Generate a Cypher query to answer the user's question based on the database schema provided.
                     DATABASE SCHEMA:
                     {schema}
                     USER QUESTION: {question}
+
                     IMPORTANT RULES:
                     1. Only use node labels, relationship types, and properties that exist in the schema
-                    2. Return meaningful data that helps answer the question
-                    3. Use OPTIONAL MATCH for relationships that may not exist
-                    4. Include relevant properties in the RETURN clause
-                    5. Use appropriate aggregation functions like collect() for multiple relationships
-                    6. Make queries case-insensitive for name searches using toLower()
-                    7. Return data in a structured format with clear aliases
-                    8. If the question is about referrals or connections, explore friend-of-friend relationships
-                    9. ONLY output the Cypher query, no explanations
+                    2. Use regex to match if the target property of node is suitable for search by regex, like name, address etc.
+                    3. Return meaningful data that helps answer the question
+                    4. Use OPTIONAL MATCH for relationships that may not exist
+                    5. Include relevant properties in the RETURN clause
+                    6. Use appropriate aggregation functions like collect() for multiple relationships
+                    7. Make queries case-insensitive for name searches using toLower()
+                    8. Return data in a structured format with clear aliases
+                    9. If the question is about referrals or connections, explore friend-of-friend relationships
+                    10. ONLY output the Cypher query, no explanations
 
                     CYPHER QUERY:"""
         try:
-            response = self.llm.invoke(prompt)
+            response = llm.invoke(prompt)
             query = response.content.strip()
-            
+            print("\n\n Query: ",query)
             # Clean up the query - remove markdown code blocks if present
             if query.startswith("```"):
                 lines = query.split("\n")
@@ -166,18 +170,21 @@ class GraphStore:
         
         return "\n".join(parts)
     
-    def retrieve(self, question: str) -> str:
+    def retrieve(self, llm, question: str) -> str:
         """Main retrieval method that generates and executes dynamic Cypher queries"""
         # Generate Cypher query using LLM
-        cypher_query = self.generate_cypher_query(question)
+        print(f"\n\n\n[Neo4j] Question: {question}\n")
+        cypher_query = self.generate_cypher_query(llm,question)
+        print(f"\n\n\n[Neo4j] Generated Cypher Query:\n{cypher_query}\n")
         
         if not cypher_query:
             return ""
         
-        print(f"\n[Neo4j] Generated Cypher Query:\n{cypher_query}\n")
         
         # Execute the query
         results = self.execute_query(cypher_query)
+
+        print(f"\n\n\n[Neo4j] Query Results:\n{results}\n")
         
         # Format and return results
         return self.format_results(results, cypher_query)

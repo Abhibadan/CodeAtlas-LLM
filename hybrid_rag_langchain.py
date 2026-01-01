@@ -6,14 +6,15 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from neo4j import GraphDatabase
 from typing import Dict, List, Any
+from config import config 
 
 # Configuration
-API_KEY = "AIzaSyDM8-7TmlsEOSQ9RBNuraiXfuw-IO_gHXI"
-CHROMA_PERSIST_DIR = "./chroma_db"
-NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "Qwer@1234"
-NEO4J_DATABASE = "company"
+API_KEY = config.GOOGLE_API_KEY
+CHROMA_PERSIST_DIR = config.CHROMA_PERSIST_DIR
+NEO4J_URI = config.NEO4J_URI
+NEO4J_USER = config.NEO4J_USER
+NEO4J_PASSWORD = config.NEO4J_PASSWORD
+NEO4J_DATABASE = config.NEO4J_DATABASE
 
 
 class Neo4jRetriever:
@@ -307,8 +308,11 @@ def main():
         print('='*70)
         
         try:
-            response = hybrid_rag_chain.invoke(question)
-            print(f"\nAnswer:\n{response}")
+            print(f"\nAnswer:")
+            # Stream the response chunk by chunk
+            for chunk in hybrid_rag_chain.stream(question):
+                print(chunk, end="", flush=True)
+            print()  # New line after streaming completes
         except Exception as e:
             print(f"Error: {e}")
             import traceback
