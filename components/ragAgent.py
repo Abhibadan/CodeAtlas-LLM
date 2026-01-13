@@ -56,4 +56,7 @@ class RagAgent:
     
     def getRagChain(self):
         return self.__hybrid_rag_chain
+    
+    def getVectorStore(self):
+        return self.__vectorStore
         
