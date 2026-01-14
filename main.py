@@ -35,30 +35,6 @@ def chat(data: ChatDTO = Body(...)):
         }
     )
 
-@app.post("/addDocument")
-def addDocument(data: DocumentDTO = Body(...)):
-    from langchain_core.documents import Document
-    
-    # Extract document content and relatedIds from the request
-    document_content = data.document
-    related_ids = data.relatedIds
-    
-    # Create a ChromaDB-compatible document with relatedIds in metadata
-    chroma_document = Document(
-        page_content=document_content,
-        metadata={"relatedIds": related_ids}
-    )
-    
-    # Store the document in ChromaDB using VectorStore
-    agent.getVectorStore().add_documents([chroma_document])
-    
-    return {
-        "status": "success",
-        "message": "Document added successfully",
-        "relatedIds": related_ids
-    }
-
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=5000)
