@@ -4,7 +4,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 import json
 
-class GraphStore:
+class GraphDb:
     __instance = None
     def __new__(cls,*args,**kwargs):
         if cls.__instance is None:

@@ -14,4 +14,6 @@ config = {
     "NEO4J_USER": os.getenv("NEO4J_USER"),
     "NEO4J_PASSWORD": os.getenv("NEO4J_PASSWORD"),
     "NEO4J_DATABASE": os.getenv("NEO4J_DATABASE"),
+    "MONGO_URI": os.getenv("MONGO_URI"),
+    "MONGO_DB": os.getenv("MONGO_DB"),
 }

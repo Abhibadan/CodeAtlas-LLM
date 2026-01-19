@@ -2,7 +2,7 @@ from langchain_chroma import Chroma
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_core.documents import Document
 from typing import List
-class VectorStore:
+class VectorDb:
     __instance = None
 
     def __new__(cls,*args,**kwargs):

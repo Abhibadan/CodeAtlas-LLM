@@ -1,5 +1,5 @@
-from dbModule.VectorStore import VectorStore
-from dbModule.GraphStore import GraphStore
+from dbModule.VectorDb import VectorDb
+from dbModule.GraphDb import GraphDb
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
@@ -21,8 +21,8 @@ class RagAgent:
     ])
 
     def __init__(self):
-        self.__vectorStore = VectorStore(config["CHROMA_HOST"],config["CHROMA_PORT"],config["CHROMA_COLLECTION"],config["EMBEDDING_MODEL"],config["GOOGLE_API_KEY"])
-        self.__graphStore = GraphStore(config["NEO4J_URI"],config["NEO4J_USER"],config["NEO4J_PASSWORD"],config["NEO4J_DATABASE"])
+        self.__vectorStore = VectorDb(config["CHROMA_HOST"],config["CHROMA_PORT"],config["CHROMA_COLLECTION"],config["EMBEDDING_MODEL"],config["GOOGLE_API_KEY"])
+        self.__graphStore = GraphDb(config["NEO4J_URI"],config["NEO4J_USER"],config["NEO4J_PASSWORD"],config["NEO4J_DATABASE"])
         self.__llm = ChatGoogleGenerativeAI(
             model=config["CHAT_MODEL"],
             google_api_key=config["GOOGLE_API_KEY"]
