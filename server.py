@@ -3,9 +3,10 @@ from fastapi.responses import StreamingResponse
 from requestDTOs.chatDTO import ChatDTO, DocumentDTO
 from middleware.authMiddleware import AuthMiddleware
 from components.ragAgent import RagAgent
+from dbModule.MongoDb import MongoDb
+dbInstance = MongoDb()
 
 app = FastAPI()
-agent = RagAgent()
 
 # app.add_middleware(AuthMiddleware)
 
@@ -18,7 +19,9 @@ def read_root():
 @app.post("/chat")
 def chat(data: ChatDTO = Body(...)):
     question = data.query
-    
+    pID = data.PID
+    projects = dbInstance.getCollection("projects").find_one({"_id": pID})
+    agent = RagAgent(project=projects["projectName"])
     async def generate_sse():
         for chunk in agent.getRagChain().stream(question):
             # Format each chunk as SSE data

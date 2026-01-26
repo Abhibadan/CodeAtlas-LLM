@@ -1,36 +1,61 @@
+import chromadb
 from langchain_chroma import Chroma
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_core.documents import Document
 from typing import List
-class VectorDb:
-    __instance = None
 
-    def __new__(cls,*args,**kwargs):
-        if cls.__instance is None:
-            cls.__instance = super().__new__(cls)
-            cls.__instance._initialized = False
-        return cls.__instance
-    
-    def __init__(self,host,port,collection,embedding_model,api_key):
-        if self._initialized:
-            return
-        self._initialized = True
-        
+class VectorDb:
+    def __init__(self, host, port, collection, embedding_model, api_key):
         # Use the same embedding function
         embeddings = GoogleGenerativeAIEmbeddings(
             model=embedding_model,
             google_api_key=api_key
         )
         
-        self.client = Chroma(
+        self.collection_name = collection
+        
+        # Create HTTP client for remote ChromaDB server
+        chroma_client = chromadb.HttpClient(
             host=host,
-            port=port,
+            port=int(port)
+        )
+        
+        # Use Langchain Chroma with the HTTP client
+        self.client = Chroma(
+            client=chroma_client,
             collection_name=collection,
             embedding_function=embeddings
         )
     
     def add_documents(self, documents):
         self.client.add(documents)
+    
+    def clear_collection(self):
+        self.client.reset_collection()
+
+    
+    def addDocument(self, content: str, metadata: dict = None):
+        """
+        Add a document to the vector store with metadata.
+        
+        Args:
+            content: The cleaned content of the document
+            metadata: Dictionary containing filePath, fileName, relatedNodeIds, matchType, etc.
+        """
+        if metadata is None:
+            metadata = {}
+        
+        # Skip empty content to avoid embedding errors
+        if not content or not content.strip():
+            print(f"Warning: Skipping empty document for {metadata.get('fileName', 'unknown')}")
+            return
+        
+        # Create a single document with the content and metadata
+        document = Document(page_content=content, metadata=metadata)
+        
+        # Add document to the vector store
+        self.client.add_documents([document])
+
     
     def format_docs(self,docs):
         """Format retrieved documents from ChromaDB"""

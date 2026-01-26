@@ -20,9 +20,9 @@ class RagAgent:
         ("human", "{question}"),
     ])
 
-    def __init__(self):
-        self.__vectorStore = VectorDb(config["CHROMA_HOST"],config["CHROMA_PORT"],config["CHROMA_COLLECTION"],config["EMBEDDING_MODEL"],config["GOOGLE_API_KEY"])
-        self.__graphStore = GraphDb(config["NEO4J_URI"],config["NEO4J_USER"],config["NEO4J_PASSWORD"],config["NEO4J_DATABASE"])
+    def __init__(self,project):
+        self.__vectorStore = VectorDb(config["CHROMA_HOST"],config["CHROMA_PORT"],project,config["EMBEDDING_MODEL"],config["GOOGLE_API_KEY"])
+        self.__graphStore = GraphDb(config["NEO4J_URI"],config["NEO4J_USER"],config["NEO4J_PASSWORD"],project)
         self.__llm = ChatGoogleGenerativeAI(
             model=config["CHAT_MODEL"],
             google_api_key=config["GOOGLE_API_KEY"]
