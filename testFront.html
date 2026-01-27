@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Chat Interface</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .project-info {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+        }
+
+        .config-panel {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .input-group {
+            flex: 1;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-group small {
+            display: block;
+            margin-top: 4px;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .user-message .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .assistant-message .message-avatar {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .message-content {
+            flex: 1;
+            background: white;
+            padding: 14px 18px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            line-height: 1.6;
+            color: #333;
+            word-wrap: break-word;
+        }
+
+        .user-message .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .message-content p {
+            margin-bottom: 10px;
+        }
+
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Marked markdown styles */
+        .message-content pre {
+            margin: 12px 0;
+            padding: 0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .message-content pre code.hljs {
+            padding: 16px;
+            border-radius: 8px;
+            display: block;
+        }
+
+        .message-content code:not(pre code) {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #e83e8c;
+        }
+
+        .typing-indicator {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            padding: 14px 18px;
+            background: white;
+            border-radius: 12px;
+            width: fit-content;
+        }
+
+        .typing-indicator.active {
+            display: flex;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #667eea;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+
+            0%,
+            60%,
+            100% {
+                transform: translateY(0);
+            }
+
+            30% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .input-area {
+            padding: 20px 30px;
+            background: white;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        #query {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 15px;
+            font-family: inherit;
+            resize: none;
+            min-height: 54px;
+            max-height: 150px;
+            transition: border-color 0.3s;
+        }
+
+        #query:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .send-button {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .send-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-bar {
+            padding: 8px 30px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #28a745;
+        }
+
+        .status-dot.streaming {
+            background: #ffc107;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 14px 18px;
+            border-radius: 12px;
+            border-left: 4px solid #f5c6cb;
+            margin: 10px 0;
+        }
+
+        .clear-button {
+            padding: 8px 16px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .clear-button:hover {
+            background: #5a6268;
+        }
+
+        /* Scrollbar styling */
+        .messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .messages::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .empty-state h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .input-row {
+                flex-direction: column;
+            }
+
+            .container {
+                height: 95vh;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <span>💬</span>
+                RAG Chat Assistant
+            </h1>
+            <div class="project-info" id="projectInfo">
+                No project selected
+            </div>
+        </div>
+
+        <div class="config-panel">
+            <div class="input-row">
+                <div class="input-group">
+                    <label for="authToken">Auth Token:</label>
+                    <input type="text" id="authToken" placeholder="Enter your auth token" value="test-token-123">
+                    <small>Bearer token for authentication</small>
+                </div>
+                <div class="input-group">
+                    <label for="projectId">Project ID:</label>
+                    <input type="text" id="projectId" placeholder="Enter 24-character project ID"
+                        value="69678116d77e757836c3c8d1" maxlength="24">
+                    <small>24-character hexadecimal MongoDB ObjectId</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div class="messages" id="messages">
+                <div class="empty-state">
+                    <div class="empty-state-icon">🤖</div>
+                    <h3>Welcome to RAG Chat</h3>
+                    <p>Enter your project ID and auth token above, then start asking questions!</p>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <textarea id="query" placeholder="Ask me anything about your project..."
+                            rows="1">what is my user service doing?</textarea>
+                    </div>
+                    <button class="send-button" id="sendBtn" onclick="sendMessage()">
+                        <span>Send</span>
+                        <span>🚀</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Ready</span>
+            </div>
+            <button class="clear-button" onclick="clearChat()">Clear Chat</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
+    <script>
+        let isStreaming = false;
+        let currentStreamDiv = null;
+        let currentMessageId = null;
+
+        // Configure marked for code highlighting
+        marked.setOptions({
+            highlight: function (code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    return hljs.highlight(code, { language: lang }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            },
+            breaks: true
+        });
+
+        // Auto-resize textarea
+        const queryInput = document.getElementById('query');
+        queryInput.addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        // Send on Enter (Shift+Enter for new line)
+        queryInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Update project info display
+        document.getElementById('projectId').addEventListener('input', function (e) {
+            const pid = e.target.value;
+            const projectInfo = document.getElementById('projectInfo');
+            if (pid.length === 24) {
+                projectInfo.textContent = `Project: ${pid.substring(0, 8)}...`;
+            } else {
+                projectInfo.textContent = 'No project selected';
+            }
+        });
+
+        async function sendMessage() {
+            if (isStreaming) return;
+
+            const query = document.getElementById('query').value.trim();
+            const projectId = document.getElementById('projectId').value.trim();
+            const authToken = document.getElementById('authToken').value.trim();
+
+            // Validation
+            if (!authToken) {
+                showError('Please enter an authentication token');
+                return;
+            }
+
+            if (!projectId) {
+                showError('Please enter a project ID');
+                return;
+            }
+
+            if (projectId.length !== 24 || !/^[0-9a-fA-F]{24}$/.test(projectId)) {
+                showError('Project ID must be a 24-character hexadecimal string');
+                return;
+            }
+
+            if (!query) {
+                showError('Please enter a question');
+                return;
+            }
+
+            // Clear input
+            document.getElementById('query').value = '';
+            document.getElementById('query').style.height = 'auto';
+
+            // Add user message
+            addMessage(query, 'user');
+
+            // Create NEW assistant message container with unique ID
+            const messagesDiv = document.getElementById('messages');
+            currentMessageId = 'msg-' + Date.now();
+            const assistantMessageDiv = document.createElement('div');
+            assistantMessageDiv.className = 'message assistant-message';
+            assistantMessageDiv.id = currentMessageId;
+            assistantMessageDiv.innerHTML = `
+                <div class="message-avatar">🤖</div>
+                <div class="message-content streaming-content"></div>
+            `;
+            messagesDiv.appendChild(assistantMessageDiv);
+            currentStreamDiv = assistantMessageDiv.querySelector('.streaming-content');
+
+            // Show typing indicator
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'typing-indicator active';
+            typingDiv.innerHTML = `
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            `;
+            currentStreamDiv.appendChild(typingDiv);
+
+            // Update UI state
+            isStreaming = true;
+            updateStatus('Streaming...', true);
+            document.getElementById('sendBtn').disabled = true;
+
+            // Scroll to bottom
+            scrollToBottom();
+
+            try {
+                const response = await fetch('http://localhost:3000/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        pid: projectId
+                    })
+                });
+
+                if (!response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    let errorMessage = 'Request failed';
+
+                    if (contentType && contentType.includes('application/json')) {
+                        const error = await response.json();
+                        errorMessage = error.error || error.detail || errorMessage;
+                    } else {
+                        errorMessage = await response.text();
+                    }
+
+                    throw new Error(errorMessage);
+                }
+
+                // Remove typing indicator
+                typingDiv.remove();
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let fullResponse = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+
+                    if (done) {
+                        console.log('Stream complete');
+                        // Final render with markdown
+                        if (currentStreamDiv) {
+                            currentStreamDiv.innerHTML = marked.parse(fullResponse);
+                        }
+                        break;
+                    }
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.substring(6).trim();
+
+                            if (data === '[DONE]') {
+                                console.log('Received [DONE] signal');
+                                continue;
+                            }
+
+                            try {
+                                const parsed = JSON.parse(data);
+
+                                // Handle errors
+                                if (parsed.error) {
+                                    throw new Error(parsed.error.message || parsed.error);
+                                }
+
+                                // Extract content (OpenAI-style format)
+                                if (parsed.choices &&
+                                    parsed.choices[0].delta &&
+                                    parsed.choices[0].delta.content) {
+
+                                    const content = parsed.choices[0].delta.content;
+                                    fullResponse += content;
+
+                                    // Render markdown during streaming
+                                    if (currentStreamDiv) {
+                                        currentStreamDiv.innerHTML = marked.parse(fullResponse);
+                                    }
+                                    scrollToBottom();
+                                }
+                            } catch (e) {
+                                // If not JSON, treat as plain text
+                                if (data && data !== '[DONE]') {
+                                    fullResponse += data;
+                                    if (currentStreamDiv) {
+                                        currentStreamDiv.textContent = fullResponse;
+                                    }
+                                    scrollToBottom();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                updateStatus('Ready', false);
+
+            } catch (error) {
+                console.error('Streaming error:', error);
+
+                // Remove typing indicator if exists
+                const typing = currentStreamDiv?.querySelector('.typing-indicator');
+                if (typing) typing.remove();
+
+                // Show error in message
+                if (currentStreamDiv) {
+                    currentStreamDiv.innerHTML = `
+                        <div class="error-message">
+                            ❌ Error: ${escapeHtml(error.message)}
+                        </div>
+                    `;
+                }
+
+                updateStatus('Error', false);
+            } finally {
+                isStreaming = false;
+                document.getElementById('sendBtn').disabled = false;
+                currentStreamDiv = null;
+                currentMessageId = null;
+            }
+        }
+
+        function addMessage(content, type) {
+            const messagesDiv = document.getElementById('messages');
+
+            // Remove empty state if exists
+            const emptyState = messagesDiv.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            messageDiv.id = 'msg-' + Date.now();
+
+            const avatar = type === 'user' ? '👤' : '🤖';
+
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${avatar}</div>
+                <div class="message-content">${marked.parse(content)}</div>
+            `;
+
+            messagesDiv.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function showError(message) {
+            const messagesDiv = document.getElementById('messages');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = '❌ ' + message;
+            messagesDiv.appendChild(errorDiv);
+            scrollToBottom();
+
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 5000);
+        }
+
+        function updateStatus(text, streaming) {
+            document.getElementById('statusText').textContent = text;
+            const statusDot = document.getElementById('statusDot');
+
+            if (streaming) {
+                statusDot.classList.add('streaming');
+            } else {
+                statusDot.classList.remove('streaming');
+            }
+        }
+
+        function scrollToBottom() {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function clearChat() {
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">🤖</div>
+                    <h3>Welcome to RAG Chat</h3>
+                    <p>Enter your project ID and auth token above, then start asking questions!</p>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Focus on query input on load
+        window.addEventListener('load', () => {
+            document.getElementById('query').focus();
+        });
+    </script>
+</body>
+
+</html>

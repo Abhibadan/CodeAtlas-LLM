@@ -1,4 +1,5 @@
 import pymongo
+
 from config import config
 
 class MongoDb:

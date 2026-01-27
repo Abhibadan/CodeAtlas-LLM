@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 class ChatDTO(BaseModel):
     query: str
-    PID: str
+    pid: str
     class Config:
         schema_extra = {
             "example": {

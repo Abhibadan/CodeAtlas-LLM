@@ -72,27 +72,59 @@ class GraphDb:
         
         return self._schema_cache
     
-    def generate_cypher_query(self, llm, question: str,details: str) -> str:
+    def generate_cypher_query(self, llm, question: str, documentation: str, node_ids: str) -> str:
         """Use LLM to generate a Cypher query based on schema and question"""
         
+        # Pass node_ids directly as a cleaned string
+        if isinstance(node_ids, str):
+            # Remove empty strings and extra commas
+            node_ids_str = ",".join([nid.strip() for nid in node_ids.split(',') if nid.strip()])
+        else:
+            node_ids_str = str(node_ids)
+        
         schema = self.get_schema()
-        prompt = f"""You are a Neo4j Cypher query expert. Generate a Cypher query to answer the user's question based on the database schema provided.
-                    DATABASE SCHEMA:
-                    {schema}
-                    USER QUESTION: {question}
-                    USER DETAILS: {details}
-                    IMPORTANT RULES:
-                    1. Only use node labels, relationship types, and properties that exist in the schema
-                    2. Return meaningful data that helps answer the question
-                    3. Use OPTIONAL MATCH for relationships that may not exist
-                    4. Include relevant properties in the RETURN clause
-                    5. Use appropriate aggregation functions like collect() for multiple relationships
-                    6. Make queries case-insensitive for name searches using toLower()
-                    7. Return data in a structured format with clear aliases
-                    8. If the question is about referrals or connections, explore friend-of-friend relationships
-                    9. ONLY output the Cypher query, no explanations
+        prompt = """You are a Neo4j Cypher query expert specializing in code dependency graph traversal. Generate a SYNTACTICALLY CORRECT Cypher query to fetch relevant code components and their relationships for code analysis.
 
-                    CYPHER QUERY:"""
+        DATABASE SCHEMA:
+        {schema}
+
+        USER QUESTION: {question}
+
+        RELEVANT NODE IDs (as comma-separated string): "{node_ids_str}"
+
+        RELATED DOCUMENTATION: {documentation}
+
+        QUERY OBJECTIVE:
+        Construct a Cypher query that fetches relevant nodes and their context starting from the provided node IDs.
+
+        CRITICAL SYNTAX RULES:
+        1. START with: WITH split("{node_ids_str}", ",") AS startNodeIds
+        2. Then use: MATCH (n) WHERE id(n) IN startNodeIds
+        3. NEVER use WHERE inside list comprehensions.
+        4. ZERO TOLERANCE: NEVER NEST AGGREGATE FUNCTIONS. Do NOT put collect() inside another collect(). 
+           BAD: collect({ a: collect(b) }) -> THIS WILL FAIL.
+        5. FOR MULTI-LEVEL RESULTS: Use multiple WITH clauses to aggregate sequentially, OR return flat paths.
+        6. Return data in a structured format with clear aliases.
+
+        SAFE MULTI-HOP PATTERN:
+        WITH split("{node_ids_str}", ",") AS startNodeIds
+        MATCH (n) WHERE id(n) IN startNodeIds
+        OPTIONAL MATCH (n)-[r1]->(n1)
+        WITH n, collect(DISTINCT {rel: r1, node: n1}) AS level1
+        OPTIONAL MATCH (n)-[]->(n1)-[r2]->(n2)
+        WITH n, level1, collect(DISTINCT {rel: r2, node: n2}) AS level2
+        RETURN n, level1, level2
+
+        OUTPUT FORMAT:
+        Generate ONLY the Cypher query without any explanations, comments, or markdown formatting.
+        Ensure the query is syntactically correct and will execute without errors.
+
+        CYPHER QUERY:"""
+        
+        prompt = prompt.replace("{schema}", schema)
+        prompt = prompt.replace("{question}", question)
+        prompt = prompt.replace("{node_ids_str}", node_ids_str)
+        prompt = prompt.replace("{documentation}", documentation)
 
         try:
             response = llm.invoke(prompt)
@@ -154,14 +186,19 @@ class GraphDb:
 
         return "\n".join(parts)
     
-    def retrieve(self, llm, question: str,details: str) -> str:
+    def retrieve(self, llm, question: str, details: str, relatedNodeIds: List[str]) -> str:
         """Main retrieval method that generates and executes dynamic Cypher queries"""
         try:
             # Generate Cypher query using LLM
-            cypher_query = self.generate_cypher_query(llm,question,details)
+            cypher_query = self.generate_cypher_query(llm, question, details, relatedNodeIds)
             if not cypher_query:
                 return ""
             
+            # Debug: Print the generated query
+            # print("="*80)
+            # print("GENERATED CYPHER QUERY:")
+            # print(cypher_query)
+            # print("="*80)
             
             # Execute the query
             results = self.execute_query(cypher_query)
@@ -170,6 +207,7 @@ class GraphDb:
             # Format and return results
             return self.format_results(results, cypher_query)
         except Exception as e:
+            print(f"Error in retrieve method: {e}")
             raise Exception(e.__str__())
 
             

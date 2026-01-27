@@ -56,10 +56,8 @@ pipeline = [
 ]
 while True:
     for project in projects.aggregate(pipeline):
-        print(project['projectName'])
         vectorStore = VectorDb(config["CHROMA_HOST"],config["CHROMA_PORT"],project['projectName'],config["EMBEDDING_MODEL"],config["GOOGLE_API_KEY"])
         if project.get("markdowns") or project.get("descriptions"):
-            print("Clear collection")
             vectorStore.clear_collection()
 
         if project.get("markdowns"):
@@ -83,7 +81,7 @@ while True:
                 metadata = {
                     'filePath': file_path,
                     'fileName': file_name,
-                    'relatedNodeIds': json.dumps(related_node_ids) if isinstance(related_node_ids, list) else str(related_node_ids),
+                    'relatedNodeIds': ",".join(related_node_ids),
                     'matchType': match_type,
                     'projectId': str(project['_id']),
                     'projectName': project['projectName'],
@@ -91,7 +89,6 @@ while True:
                     'type': 'markdown'
                 }
                 
-                print("metadata",metadata)
                 # Add document with metadata to vector store
                 vectorStore.addDocument(content=cleaned_content, metadata=metadata)
         if project.get("descriptions"):
