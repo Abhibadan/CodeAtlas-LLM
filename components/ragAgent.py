@@ -56,6 +56,7 @@ class RagAgent:
                 6. Provide context-aware explanations based on the codebase structure
                 7. If multiple approaches exist, present trade-offs clearly
                 8. Always consider backward compatibility and existing patterns
+                9. Don't mention any id of nodes of graph database
 
                 CODE FORMATTING RULE:
                 When providing code examples or suggestions, you MUST encapsulate ALL code blocks using standard Markdown format:
