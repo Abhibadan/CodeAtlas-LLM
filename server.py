@@ -49,7 +49,7 @@ async def chat(data: ChatDTO = Body(...)):  # Make endpoint async
             media_type="application/json"
         )
         
-    agent = RagAgent(project=project_doc["projectName"])
+    agent = RagAgent(project=project_doc["title"])
     
     async def generate_stream():
         try:

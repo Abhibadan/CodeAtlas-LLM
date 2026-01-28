@@ -4,7 +4,7 @@ Run this script once before using the hybrid RAG system
 """
 
 import os
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from neo4j import GraphDatabase
@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration
-API_KEY = os.getenv("GOOGLE_API_KEY")
+API_KEY = os.getenv("OPENAI_API_KEY", "lm-studio")
+BASE_URL = os.getenv("OPENAI_BASE_URL", "http://localhost:1234/v1")
 CHROMA_PERSIST_DIR = "./chroma_db"
 CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION")
 NEO4J_URI = os.getenv("NEO4J_URI")
@@ -126,9 +127,10 @@ def setup_chromadb():
     print("Setting up ChromaDB...")
     
     # Initialize embeddings
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-001",
-        api_key=API_KEY
+    embeddings = OpenAIEmbeddings(
+        model="text-embedding-ada-002",
+        api_key=API_KEY,
+        base_url=BASE_URL
     )
     
     # Create or load vector store
@@ -229,9 +231,10 @@ def verify_setup():
     
     # Verify ChromaDB
     print("\n2. ChromaDB Verification:")
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-001",
-        api_key=API_KEY
+    embeddings = OpenAIEmbeddings(
+        model="text-embedding-ada-002",
+        api_key=API_KEY,
+        base_url=BASE_URL
     )
     vector_store = Chroma(
         collection_name=CHROMA_COLLECTION_NAME,

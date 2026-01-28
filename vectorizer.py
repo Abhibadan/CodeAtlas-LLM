@@ -5,20 +5,22 @@ from dbModule.VectorDb import VectorDb
 from config import config
 from time import sleep
 dbInstance = MongoDb()
-projects,markdowns,descriptions= dbInstance.getCollection("projects"),dbInstance.getCollection("markdowns"),dbInstance.getCollection("descriptions")
+projects = dbInstance.getCollection("projects")
+projectmarkdowns = dbInstance.getCollection("projectmarkdowns")
+projectdescriptions = dbInstance.getCollection("projectdescriptions")
 
 pipeline = [
     {
         "$match": {
-            "isDeleted": False
+            "is_deleted": False
         }
     },
     {
         "$lookup": {
-            "from": "markdowns",
+            "from": "projectmarkdowns",
             "localField": "_id",
             "foreignField": "projectId",
-            "let": {"projectScanVersion": "$scanVersion"},
+            "let": {"projectScanVersion": "$scan_version"},
             "pipeline": [
                 {
                     "$match": {
@@ -30,15 +32,15 @@ pipeline = [
                     }
                 }
             ],
-            "as": "markdowns"
+            "as": "projectmarkdowns"
         }
     },
     {
         "$lookup": {
-            "from": "descriptions",
+            "from": "projectdescriptions",
             "localField": "_id",
             "foreignField": "projectId",
-            "let": {"projectScanVersion": "$scanVersion"},
+            "let": {"projectScanVersion": "$scan_version"},
             "pipeline": [
                 {
                     "$match": {
@@ -50,24 +52,24 @@ pipeline = [
                     }
                 }
             ],
-            "as": "descriptions"
+            "as": "projectdescriptions"
         }
     }
 ]
 while True:
     for project in projects.aggregate(pipeline):
-        vectorStore = VectorDb(config["CHROMA_HOST"],config["CHROMA_PORT"],project['projectName'],config["EMBEDDING_MODEL"],config["GOOGLE_API_KEY"])
-        if project.get("markdowns") or project.get("descriptions"):
+        vectorStore = VectorDb(config["CHROMA_HOST"],config["CHROMA_PORT"],project['title'],config["EMBEDDING_MODEL"],config["OPENAI_API_KEY"],config["OPENAI_BASE_URL"])
+        if project.get("projectmarkdowns") or project.get("projectdescriptions"):
             vectorStore.clear_collection()
 
-        if project.get("markdowns"):
-            for markdown in project["markdowns"]:
+        if project.get("projectmarkdowns"):
+            for markdown in project["projectmarkdowns"]:
                 # Extract fields from markdown document
                 file_path = markdown.get('filePath', '')
                 file_name = markdown.get('fileName', file_path.split('/')[-1] if file_path else 'unknown')
                 
                 # Clean content for vector DB
-                cleaned_content = markdown.get('content', '').strip()
+                cleaned_content = markdown.get('cleanedContent', '').strip()
                 
                 # Skip empty documents
                 if not cleaned_content:
@@ -84,21 +86,21 @@ while True:
                     'relatedNodeIds': ",".join(related_node_ids),
                     'matchType': match_type,
                     'projectId': str(project['_id']),
-                    'projectName': project['projectName'],
-                    'scanVersion': markdown.get('scanVersion', project.get('scanVersion')),
+                    'projectName': project['title'],
+                    'scanVersion': markdown.get('scanVersion', project.get('scan_version')),
                     'type': 'markdown'
                 }
                 
                 # Add document with metadata to vector store
                 vectorStore.addDocument(content=cleaned_content, metadata=metadata)
-        if project.get("descriptions"):
-            for description in project["descriptions"]:
+        if project.get("projectdescriptions"):
+            for description in project["projectdescriptions"]:
                 # Extract fields from description document
                 file_path = description.get('filePath', '')
-                file_name = description.get('fileName', file_path.split('/')[-1] if file_path else 'unknown')
+                node_name = description.get('nodeName', 'unknown')
                 
-                # Clean content for vector DB
-                cleaned_content = description.get('content', '').strip()
+                # Clean content for vector DB - use description field for content
+                cleaned_content = description.get('description', '').strip()
                 
                 # Skip empty documents
                 if not cleaned_content:
@@ -111,19 +113,22 @@ while True:
                 # Prepare metadata
                 metadata = {
                     'filePath': file_path,
-                    'fileName': file_name,
-                    'relatedNodeIds': json.dumps(related_node_ids) if isinstance(related_node_ids, list) else str(related_node_ids),
-                    'matchType': match_type,
+                    'fileName': node_name,
+                    'nodeId': description.get('nodeId', ''),
+                    'nodeName': description.get('nodeName', ''),
+                    'nodeKind': description.get('nodeKind', ''),
+                    'description': description.get('description', ''),
+                    'fullComment': description.get('fullComment', ''),
                     'projectId': str(project['_id']),
-                    'projectName': project['projectName'],
-                    'scanVersion': description.get('scanVersion', project.get('scanVersion')),
+                    'projectName': project['title'],
+                    'scanVersion': description.get('scanVersion', project.get('scan_version')),
                     'type': 'description'
                 }
                 
                 # Add document with metadata to vector store
                 vectorStore.addDocument(content=cleaned_content, metadata=metadata)
 
-        markdowns.delete_many({"projectId": project['_id'],"scanVersion": {"$lte": project.get('scanVersion')}})
-        descriptions.delete_many({"projectId": project['_id'],"scanVersion": {"$lte": project.get('scanVersion')}})
+        projectmarkdowns.delete_many({"projectId": project['_id'],"scanVersion": {"$lte": project.get('scan_version')}})
+        projectdescriptions.delete_many({"projectId": project['_id'],"scanVersion": {"$lte": project.get('scan_version')}})
     sleep(300)
 

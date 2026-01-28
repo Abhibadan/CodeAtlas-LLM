@@ -1,5 +1,5 @@
 import os
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
@@ -9,12 +9,13 @@ from typing import Dict, List, Any
 from config import config 
 
 # Configuration
-API_KEY = config.GOOGLE_API_KEY
-CHROMA_PERSIST_DIR = config.CHROMA_PERSIST_DIR
-NEO4J_URI = config.NEO4J_URI
-NEO4J_USER = config.NEO4J_USER
-NEO4J_PASSWORD = config.NEO4J_PASSWORD
-NEO4J_DATABASE = config.NEO4J_DATABASE
+API_KEY = config["OPENAI_API_KEY"]
+BASE_URL = config["OPENAI_BASE_URL"]
+CHROMA_PERSIST_DIR = config["CHROMA_PERSIST_DIR"]
+NEO4J_URI = config["NEO4J_URI"]
+NEO4J_USER = config["NEO4J_USER"]
+NEO4J_PASSWORD = config["NEO4J_PASSWORD"]
+NEO4J_DATABASE = config["NEO4J_DATABASE"]
 
 
 class Neo4jRetriever:
@@ -216,9 +217,10 @@ def create_hybrid_context(chroma_docs: str, neo4j_context: str) -> str:
 
 def main():
     # 1. Initialize Embeddings
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-001", 
-        api_key=API_KEY
+    embeddings = OpenAIEmbeddings(
+        model="text-embedding-ada-002", 
+        api_key=API_KEY,
+        base_url=BASE_URL
     )
     
     # 2. Check and Load ChromaDB
@@ -235,9 +237,10 @@ def main():
     chroma_retriever = vector_store.as_retriever(search_kwargs={"k": 3})
     
     # 4. Initialize LLM (moved up - needed for Neo4j dynamic query generation)
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash-lite", 
-        google_api_key=API_KEY
+    llm = ChatOpenAI(
+        model="gpt-3.5-turbo", 
+        api_key=API_KEY,
+        base_url=BASE_URL
     )
     
     # 5. Initialize Neo4j Retriever with LLM for dynamic query generation

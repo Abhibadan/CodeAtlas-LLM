@@ -1,15 +1,16 @@
 import chromadb
 from langchain_chroma import Chroma
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
 from typing import List
 
 class VectorDb:
-    def __init__(self, host, port, collection, embedding_model, api_key):
-        # Use the same embedding function
-        embeddings = GoogleGenerativeAIEmbeddings(
+    def __init__(self, host, port, collection, embedding_model, api_key, base_url=None):
+        # Use OpenAI embeddings with LMStudio
+        embeddings = OpenAIEmbeddings(
             model=embedding_model,
-            google_api_key=api_key
+            openai_api_key=api_key,
+            openai_api_base=base_url or "http://localhost:1234/v1"
         )
         
         self.collection_name = collection
@@ -83,6 +84,11 @@ class VectorDb:
                 "filePath": [],
                 "relatedNodeIds": [],
                 "matchType": [],
+                "nodeId": [],
+                "nodeName": [],
+                "nodeKind": [],
+                "description": [],
+                "fullComment": [],
                 "projectId": [],
                 "projectName": [],
                 "scanVersion": [],
@@ -98,6 +104,11 @@ class VectorDb:
 
             File Path: {doc.metadata.get("filePath", "unknown")}
             File Name: {doc.metadata.get("fileName", "unknown")}
+            Node ID: {doc.metadata.get("nodeId", "unknown")}
+            Node Name: {doc.metadata.get("nodeName", "unknown")}
+            Node Kind: {doc.metadata.get("nodeKind", "unknown")}
+            Description: {doc.metadata.get("description", "unknown")}
+            Full Comment: {doc.metadata.get("fullComment", "unknown")}
             Related Node IDs: {doc.metadata.get("relatedNodeIds", "unknown")}
             Match Type: {doc.metadata.get("matchType", "unmatched")}
             Project ID: {doc.metadata.get("projectId", "unknown")}
@@ -109,6 +120,11 @@ class VectorDb:
             formated_docs["content"].append(content)
             formated_docs["metadata"]["fileName"].append(doc.metadata.get("fileName", "unknown"))
             formated_docs["metadata"]["filePath"].append(doc.metadata.get("filePath", "unknown"))
+            formated_docs["metadata"]["nodeId"].append(doc.metadata.get("nodeId", "unknown"))
+            formated_docs["metadata"]["nodeName"].append(doc.metadata.get("nodeName", "unknown"))
+            formated_docs["metadata"]["nodeKind"].append(doc.metadata.get("nodeKind", "unknown"))
+            formated_docs["metadata"]["description"].append(doc.metadata.get("description", "unknown"))
+            formated_docs["metadata"]["fullComment"].append(doc.metadata.get("fullComment", "unknown"))
             formated_docs["metadata"]["relatedNodeIds"].append(doc.metadata.get("relatedNodeIds", "unknown"))
             formated_docs["metadata"]["matchType"].append(doc.metadata.get("matchType", "unmatched"))
             formated_docs["metadata"]["types"].append(doc.metadata.get("type", "unknown"))
@@ -117,6 +133,11 @@ class VectorDb:
             "metadata":{
                 "fileName":",".join(formated_docs["metadata"]["fileName"]),
                 "filePath":",".join(formated_docs["metadata"]["filePath"]),
+                "nodeId":",".join(formated_docs["metadata"]["nodeId"]),
+                "nodeName":",".join(formated_docs["metadata"]["nodeName"]),
+                "nodeKind":",".join(formated_docs["metadata"]["nodeKind"]),
+                "description":",".join(formated_docs["metadata"]["description"]),
+                "fullComment":",".join(formated_docs["metadata"]["fullComment"]),
                 "relatedNodeIds":",".join(formated_docs["metadata"]["relatedNodeIds"]),
                 "matchType":",".join(formated_docs["metadata"]["matchType"]),
                 "types":",".join(formated_docs["metadata"]["types"]),

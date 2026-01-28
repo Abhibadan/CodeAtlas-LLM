@@ -1,6 +1,6 @@
 from dbModule.VectorDb import VectorDb
 from dbModule.GraphDb import GraphDb
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
@@ -101,11 +101,12 @@ class RagAgent:
     # ])
 
     def __init__(self,project):
-        self.__vectorStore = VectorDb(config["CHROMA_HOST"],config["CHROMA_PORT"],project,config["EMBEDDING_MODEL"],config["GOOGLE_API_KEY"])
+        self.__vectorStore = VectorDb(config["CHROMA_HOST"],config["CHROMA_PORT"],project,config["EMBEDDING_MODEL"],config["OPENAI_API_KEY"],config["OPENAI_BASE_URL"])
         self.__graphStore = GraphDb(config["NEO4J_URI"],config["NEO4J_USER"],config["NEO4J_PASSWORD"],project)
-        self.__llm = ChatGoogleGenerativeAI(
+        self.__llm = ChatOpenAI(
             model=config["CHAT_MODEL"],
-            google_api_key=config["GOOGLE_API_KEY"]
+            api_key=config["OPENAI_API_KEY"],
+            base_url=config["OPENAI_BASE_URL"]
         )
 
         # Create the retrieval chain - cleanest approach with dict unpacking
