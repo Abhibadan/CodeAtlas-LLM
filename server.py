@@ -4,12 +4,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from requestDTOs.chatDTO import ChatDTO, DocumentDTO
 from middleware.authMiddleware import AuthMiddleware
 from components.ragAgent import RagAgent
-from dbModule.MongoDb import MongoDb
+from dbModule import init_db, Project
 from bson import ObjectId
 import json     
 import asyncio
 
-dbInstance = MongoDb()
+# Initialize MongoDB connection using MongoEngine
+from config import config
+init_db(database_name=config["MONGO_DB"], host=config["MONGO_URI"])
+
 app = FastAPI()
 
 app.add_middleware(
@@ -34,7 +37,21 @@ async def chat(data: ChatDTO = Body(...)):  # Make endpoint async
         )
         
     try:
-        project_doc = dbInstance.getCollection("projects").find_one({"_id": ObjectId(pID)})
+        # Use MongoEngine to query project
+        project = Project.find_by_id(id=ObjectId(pID))
+        
+        # Check if project exists before processing
+        if not project:
+            return StreamingResponse(
+                iter([json.dumps({"error": "Project not found"})]), 
+                status_code=404,
+                media_type="application/json"
+            )
+        
+        # Extract uuid before converting to JSON
+        project_uuid = project.uuid
+        project_json = project.to_json()
+        
     except Exception as e:
         return StreamingResponse(
             iter([json.dumps({"error": f"Database lookup failed - {str(e)}"})]), 
@@ -42,14 +59,9 @@ async def chat(data: ChatDTO = Body(...)):  # Make endpoint async
             media_type="application/json"
         )
     
-    if not project_doc:
-        return StreamingResponse(
-            iter([json.dumps({"error": "Project not found"})]), 
-            status_code=404,
-            media_type="application/json"
-        )
-        
-    agent = RagAgent(project=project_doc["projectName"])
+    print(project_json)
+    # Use the extracted uuid
+    agent = RagAgent(project=project_uuid)
     
     async def generate_stream():
         try:

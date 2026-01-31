@@ -26,6 +26,7 @@ class VectorDb:
             collection_name=collection,
             embedding_function=embeddings
         )
+        print(self.client)
     
     def add_documents(self, documents):
         self.client.add(documents)
@@ -74,7 +75,13 @@ class VectorDb:
         if not docs:
             return {
                 "content": "",
-                "metadata": {}
+                "metadata": {
+                    "fileName": "",
+                    "filePath": "",
+                    "relatedNodeIds": "",
+                    "matchType": "",
+                    "types": ""
+                }
             }
         formated_docs = {
             "content": [],
@@ -107,17 +114,21 @@ class VectorDb:
             
             """
             formated_docs["content"].append(content)
-            formated_docs["metadata"]["fileName"].append(doc.metadata.get("fileName", "unknown"))
-            formated_docs["metadata"]["filePath"].append(doc.metadata.get("filePath", "unknown"))
-            formated_docs["metadata"]["relatedNodeIds"].append(doc.metadata.get("relatedNodeIds", "unknown"))
-            formated_docs["metadata"]["matchType"].append(doc.metadata.get("matchType", "unmatched"))
-            formated_docs["metadata"]["types"].append(doc.metadata.get("type", "unknown"))
+            formated_docs["metadata"]["fileName"].append(str(doc.metadata.get("fileName", "unknown")))
+            formated_docs["metadata"]["filePath"].append(str(doc.metadata.get("filePath", "unknown")))
+            # relatedNodeIds is already a string (comma-separated or JSON), just use it directly
+            related_ids = doc.metadata.get("relatedNodeIds", "")
+            if related_ids:
+                formated_docs["metadata"]["relatedNodeIds"].append(str(related_ids))
+            formated_docs["metadata"]["matchType"].append(str(doc.metadata.get("matchType", "unmatched")))
+            formated_docs["metadata"]["types"].append(str(doc.metadata.get("type", "unknown")))
+            index += 1
         return {
             "content": "\n\n=== DETAILED INFORMATION FROM DOCUMENTS ===\n" + "\n\n".join(formated_docs["content"]),
             "metadata":{
                 "fileName":",".join(formated_docs["metadata"]["fileName"]),
                 "filePath":",".join(formated_docs["metadata"]["filePath"]),
-                "relatedNodeIds":",".join(formated_docs["metadata"]["relatedNodeIds"]),
+                "relatedNodeIds":",".join(formated_docs["metadata"]["relatedNodeIds"]) if formated_docs["metadata"]["relatedNodeIds"] else "",
                 "matchType":",".join(formated_docs["metadata"]["matchType"]),
                 "types":",".join(formated_docs["metadata"]["types"]),
             }
