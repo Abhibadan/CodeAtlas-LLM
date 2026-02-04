@@ -12,12 +12,7 @@ class WorkerRegistry(str, Enum):
     Add new worker names here when creating new workers.
     """
     
-    # Example workers - replace these with your actual worker names
-    EMAIL_WORKER = "email-worker"
-    NOTIFICATION_WORKER = "notification-worker"
-    DATA_PROCESSING_WORKER = "data-processing-worker"
-    FILE_UPLOAD_WORKER = "file-upload-worker"
-    REPORT_GENERATION_WORKER = "report-generation-worker"
+    VECTORIZER_WORKER = "vectorizer-worker"
     
     @classmethod
     def get_all_names(cls) -> list[str]:
