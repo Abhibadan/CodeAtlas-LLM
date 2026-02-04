@@ -1,23 +1,30 @@
 import json
+import sys
 from bson import ObjectId
 from dbModule import init_db, Project, Markdown, Description
 from dbModule.VectorDb import VectorDb
 from config import chroma_config, google_config, mongo_config
 from bullMQ import WorkerLoader, WorkerRegistry
 import asyncio
+import signal
 
 # Initialize MongoDB connection using MongoEngine
-init_db(database_name=mongo_config["MONGO_DB"], host=mongo_config["MONGO_URI"])
+init_db(database_name=mongo_config["db"], host=mongo_config["uri"])
 
 
 async def process_vectorizer_job(job, job_token):
     """Process a vectorizer job"""
     try:
+        print("job", job)
+        print("job token", job_token)
         # Extract job data
         job_data = job.data
 
+        print("job data", job_data)
         project = Project.find_by_id(ObjectId(job_data["projectId"]))
         
+        print("project parsing", project)
+
         # Get markdowns and descriptions for this project with matching scanVersion
         markdowns = Markdown.objects(
             projectId=project.id,
@@ -48,7 +55,7 @@ async def process_vectorizer_job(job, job_token):
             vectorStore.clear_collection()
         else:
             # print("No new markdowns or descriptions for project", project.projectName)
-            continue
+            return
         
         # Process markdowns
         for markdown in markdowns:
@@ -93,7 +100,7 @@ async def process_vectorizer_job(job, job_token):
             
             # Skip empty documents
             if not cleaned_content:
-                return
+                continue
             
             # Extract related node IDs and match type
             related_node_ids = description.relatedNodeIds or []
@@ -139,47 +146,33 @@ async def process_vectorizer_job(job, job_token):
         raise
 
 
-worker = WorkerLoader(WorkerRegistry.VECTORIZER_WORKER, process_vectorizer_job, {
-    "autorun": True,
-    "removeOnComplete": {
-        "age": 3600,
-        "count": 500 
-    },
-    "removeOnFail": {
-        "age": 86400,
-        "count": 1000
-    },
-    "concurrency": 1,
-    "limiter": {
-        "max": 1,
-        "duration": 1000
-    },
-    "settings": {
-        "attempts": 3,
-        "backoff": {
-            "type": "exponential",
-            "delay": 1000
-        }
-    }
-})
+async def main():
+    """Main async function to properly handle worker lifecycle"""
+    worker_loader = WorkerLoader(WorkerRegistry.VECTORIZER_WORKER.value, process_vectorizer_job)
+    try:
+        # Initialize worker inside async context
+        await worker_loader.start_worker()
+    finally:
+        # Clean up resources
+        print("Cleaning up resources...")
+        await worker_loader.close_worker()
+        # signal.signal(signal.SIGINT, lambda sig, frame: print("\n✓ Worker stopped"))
+        # signal.signal(signal.SIGTERM, lambda sig, frame: print("\n✓ Worker stopped"))
+
 
 if __name__ == "__main__":
     """Entry point for daemon mode"""
     try:
-        worker.on("ready",lambda: print("Worker is ready"))
-        worker.on("completed",lambda job, result: print(f"Job {job.id} completed"))
-        worker.on("failed",lambda job, error: print(f"Job {job.id} failed: {error}"))
-        worker.on("error",lambda error: print(f"Worker error: {error}"))
-        worker.on("progress",lambda job, progress: print(f"Job {job.id} progress: {progress}"))
-        worker.on("active",lambda job: print(f"Job {job.id} active"))
-        print("Worker is starting...")
-        asyncio.run(worker.run())
+        asyncio.run(main())
     except KeyboardInterrupt:
         print("\n✓ Worker stopped")
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
         traceback.print_exc()
+        sys.exit(1)
+
+
 
 # # Main processing loop
 # while True:

@@ -12,7 +12,7 @@ class WorkerRegistry(str, Enum):
     Add new worker names here when creating new workers.
     """
     
-    VECTORIZER_WORKER = "vectorizer-worker"
+    VECTORIZER_WORKER = "VECTORIZER_WORKER"
     
     @classmethod
     def get_all_names(cls) -> list[str]:
