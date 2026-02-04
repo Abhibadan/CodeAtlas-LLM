@@ -3,17 +3,38 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-config = {
-    "CHROMA_HOST": os.getenv("CHROMA_HOST"),
-    "CHROMA_PORT": os.getenv("CHROMA_PORT"),
-    "CHROMA_COLLECTION": os.getenv("CHROMA_COLLECTION"),
-    "GOOGLE_API_KEY": os.getenv("GOOGLE_API_KEY"),
-    "EMBEDDING_MODEL": os.getenv("EMBEDDING_MODEL"),
-    "CHAT_MODEL": os.getenv("CHAT_MODEL"),
-    "NEO4J_URI": os.getenv("NEO4J_URI"),
-    "NEO4J_USER": os.getenv("NEO4J_USER"),
-    "NEO4J_PASSWORD": os.getenv("NEO4J_PASSWORD"),
-    "NEO4J_DATABASE": os.getenv("NEO4J_DATABASE"),
-    "MONGO_URI": os.getenv("MONGO_URI"),
-    "MONGO_DB": os.getenv("MONGO_DB"),
+# ChromaDB Configuration
+chroma_config = {
+    "host": os.getenv("CHROMA_HOST"),
+    "host": os.getenv("CHROMA_PORT"),
+    "collection": os.getenv("CHROMA_COLLECTION"),
+}
+
+# Google AI Configuration
+google_config = {
+    "api_key": os.getenv("GOOGLE_API_KEY"),
+    "embedding_model": os.getenv("EMBEDDING_MODEL"),
+    "chat_model": os.getenv("CHAT_MODEL"),
+}
+
+# Neo4j Configuration
+neo4j_config = {
+    "uri": os.getenv("NEO4J_URI"),
+    "user": os.getenv("NEO4J_USER"),
+    "password": os.getenv("NEO4J_PASSWORD"),
+    "database": os.getenv("NEO4J_DATABASE"),
+}
+
+# MongoDB Configuration
+mongo_config = {
+    "uri": os.getenv("MONGO_URI"),
+    "db": os.getenv("MONGO_DB"),
+}
+
+# Redis Configuration (for BullMQ)
+redis_config = {
+    "host": os.getenv("REDIS_HOST", "localhost"),
+    "port": int(os.getenv("REDIS_PORT", "6379")),
+    "db": int(os.getenv("REDIS_DB", "0")),
+    "password": os.getenv("REDIS_PASSWORD"),
 }

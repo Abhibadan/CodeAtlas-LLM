@@ -10,8 +10,8 @@ import json
 import asyncio
 
 # Initialize MongoDB connection using MongoEngine
-from config import config
-init_db(database_name=config["MONGO_DB"], host=config["MONGO_URI"])
+from config import mongo_config
+init_db(database_name=mongo_config["db"], host=mongo_config["uri"])
 
 app = FastAPI()
 

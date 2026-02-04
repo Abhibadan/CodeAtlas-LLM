@@ -2,11 +2,11 @@ import json
 from bson import ObjectId
 from dbModule import init_db, Project, Markdown, Description
 from dbModule.VectorDb import VectorDb
-from config import config
+from config import chroma_config, google_config
 from time import sleep
 
 # Initialize MongoDB connection using MongoEngine
-init_db(database_name=config["MONGO_DB"], host=config["MONGO_URI"])
+init_db(database_name=mongo_config["MONGO_DB"], host=mongo_config["MONGO_URI"])
 
 # Main processing loop
 while True:
@@ -34,11 +34,11 @@ while True:
             # Initialize vector store for this project
             # print("Initializing vector store for project", project.projectName)
             vectorStore = VectorDb(
-                config["CHROMA_HOST"],
-                config["CHROMA_PORT"],
+                chroma_config["host"],
+                chroma_config["port"],
                 project.uuid,  # Using backward compatible property
-                config["EMBEDDING_MODEL"],
-                config["GOOGLE_API_KEY"]
+                google_config["EMBEDDING_MODEL"],
+                google_config["GOOGLE_API_KEY"]
             )
             vectorStore.clear_collection()
         else:

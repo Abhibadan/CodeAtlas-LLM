@@ -4,7 +4,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-from config import config
+from config import google_config, chroma_config, neo4j_config
 from typing import List, Dict, Any
 class RagAgent:
     prompt = """You are an expert code analysis assistant specializing in understanding complex codebases and providing actionable guidance for code modifications.
@@ -101,11 +101,11 @@ class RagAgent:
     # ])
 
     def __init__(self,project):
-        self.__vectorStore = VectorDb(config["CHROMA_HOST"],config["CHROMA_PORT"],project,config["EMBEDDING_MODEL"],config["GOOGLE_API_KEY"])
-        self.__graphStore = GraphDb(config["NEO4J_URI"],config["NEO4J_USER"],config["NEO4J_PASSWORD"],project)
+        self.__vectorStore = VectorDb(chroma_config["host"],chroma_config["port"],project,google_config["embedding_model"],google_config["api_key"])
+        self.__graphStore = GraphDb(neo4j_config["uri"],neo4j_config["user"],neo4j_config["password"],project)
         self.__llm = ChatGoogleGenerativeAI(
-            model=config["CHAT_MODEL"],
-            google_api_key=config["GOOGLE_API_KEY"]
+            model=google_config["chat_model"],
+            google_api_key=google_config["api_key"]
         )
 
         # Create the retrieval chain - cleanest approach with dict unpacking
