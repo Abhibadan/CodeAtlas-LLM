@@ -10,6 +10,7 @@ packages = [
     { include = "components" },
     { include = "requestDTOs" },
     { include = "bullMQ" },
+    { include = "kafkaService" },
 ]
 # package-mode = false
 

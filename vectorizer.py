@@ -5,10 +5,10 @@ from dbModule import init_db, Project, Markdown, Description
 from dbModule.VectorDb import VectorDb
 from config import chroma_config, google_config, mongo_config
 from bullMQ import WorkerLoader, WorkerRegistry
+from kafkaService import ProducerHelper,TopicRegistry
 import asyncio
 import signal
 import logging
-from kafkaService import ProducerHelper
 logger = logging.getLogger(__name__)
 
 # Initialize MongoDB connection using MongoEngine
@@ -150,15 +150,17 @@ async def process_vectorizer_job(job, job_token):
 def vectorixation_completed_callback(job, job_token):
     """Callback function to be called when a vectorization job is completed"""
     try:
+        print("Sending vectorization completed message...")
         # Send a message to Kafka to notify the frontend
         ProducerHelper.send_message(
-            topic_name="codeatlas-llm-events",
+            topic=TopicRegistry.CODEATLAS_LLM_EVENTS.value,
             message={
                 "type": "vectorization_completed",
                 "projectId": job.data["projectId"],
                 "jobId": job.id
             }
         )
+        logger.info(f"✓ Sent vectorization completed event for project {job.data['projectId']}")
     except Exception as e:
         logger.error(f"Error sending vectorization completed message: {e}")
 
@@ -168,9 +170,9 @@ async def main():
     try:
         # Initialize worker inside async context
         worker_loader.on_completed(vectorixation_completed_callback)
-        worker_loader.on_failed(lambda **kwargs: logger.error(f"✗ Job {kwargs['job'].id} failed: {kwargs['error']}"))
-        worker_loader.on_error(lambda **kwargs: logger.error(f"❌ Worker error: {kwargs['error']}"))
-        worker_loader.on_ready(lambda **kwargs: logger.info("✓ Worker is ready"))
+        worker_loader.on_failed(lambda job, error: logger.error(f"✗ Job {job.id} failed: {error}"))
+        worker_loader.on_error(lambda error, job: logger.error(f"❌ Worker error: {error}"))
+        worker_loader.on_ready(lambda: logger.info("✓ Worker is ready"))
 
         await worker_loader.start_worker()
     finally:

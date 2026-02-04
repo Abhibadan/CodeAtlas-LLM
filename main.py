@@ -1,7 +1,8 @@
 import subprocess
 import signal
 import sys
-from kafkaService import KafkaConnection,TopicRegistry
+from kafkaService import KafkaConnection, KafkaAdmin, TopicRegistry
+from config import kafka_config
 import logging
 logger = logging.getLogger(__name__)
 # Global list to track subprocesses
@@ -39,15 +40,24 @@ def main():
     logger.info("Starting vectorizer.py...")
     processes.append(subprocess.Popen(["python", "vectorizer.py"]))
     
-    logger.info("Creating Kafka topics...")
-    exists = KafkaAdmin.topic_exists(TopicRegistry.CODEATLAS_LLM_EVENTS.value)
-    if not exists:
-        KafkaConnection.create_topics()
-        KafkaAdmin.create_topic(
-            topic_name=TopicRegistry.CODEATLAS_LLM_EVENTS.value,
-            num_partitions=4,
-            replication_factor=1
-        )
+    # Try to create Kafka topics (optional - won't crash if Kafka is not ready)
+    try:
+        logger.info("Creating Kafka topics...")
+        print(f"🔍 DEBUG: kafka_config = {kafka_config}")
+        print("topics : ",KafkaAdmin.list_topics())
+        exists = KafkaAdmin.topic_exists(TopicRegistry.CODEATLAS_LLM_EVENTS.value)
+        if not exists:
+            KafkaAdmin.create_topic(
+                topic_name=TopicRegistry.CODEATLAS_LLM_EVENTS.value,
+                num_partitions=4,
+                replication_factor=1
+            )
+            logger.info(f"✓ Created topic: {TopicRegistry.CODEATLAS_LLM_EVENTS.value}")
+        else:
+            logger.info(f"✓ Topic already exists: {TopicRegistry.CODEATLAS_LLM_EVENTS.value}")
+    except Exception as e:
+        logger.warning(f"⚠ Kafka is not available: {e}")
+        logger.warning("Application will start without Kafka integration. Start Kafka broker to enable event streaming.")
     
     logger.info("All subprocesses started. Press Ctrl+C to stop.")
     

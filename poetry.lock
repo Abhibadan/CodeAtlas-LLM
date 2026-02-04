@@ -1621,6 +1621,26 @@ files = [
 referencing = ">=0.31.0"
 
 [[package]]
+name = "kafka-python"
+version = "2.3.0"
+description = "Pure Python client for Apache Kafka"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "kafka_python-2.3.0-py2.py3-none-any.whl", hash = "sha256:831ba6dff28144d0f1145c874d391f3ebb3c2c3e940cc78d74e83f0183497c98"},
+    {file = "kafka_python-2.3.0.tar.gz", hash = "sha256:de65b596d26b5c894f227c35c7d29a65cea8f8a1c4f0f2b4e3e2ea60d503acc8"},
+]
+
+[package.extras]
+benchmarks = ["pyperf"]
+crc32c = ["crc32c"]
+lz4 = ["lz4"]
+snappy = ["python-snappy"]
+testing = ["mock ; python_version < \"3.3\"", "pytest", "pytest-mock", "pytest-timeout"]
+zstd = ["zstandard"]
+
+[[package]]
 name = "kubernetes"
 version = "35.0.0"
 description = "Kubernetes python client"
@@ -5104,4 +5124,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "c98d036afb6fb612f967ad6c3d002942bb04f8442f5d62e5b46b66ef4e383d77"
+content-hash = "7c068fb1627dc3174876c3a3c51d3954d176b8faa95ff0e4dc5339b99c372dd6"

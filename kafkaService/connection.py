@@ -23,26 +23,29 @@ class KafkaConnection:
     @classmethod
     def get_producer(cls) -> KafkaProducer:
         """
-        Get or create a Kafka producer instance
+        Create a new Kafka producer instance (no caching to avoid stale connections)
         
         Returns:
-            KafkaProducer: Configured Kafka producer
+            KafkaProducer: New Kafka producer instance
         """
-        if cls._producer is None:
-            try:
-                cls._producer = KafkaProducer(
-                    bootstrap_servers=kafka_config["bootstrap_servers"],
-                    value_serializer=lambda v: json.dumps(v).encode('utf-8'),
-                    key_serializer=lambda k: k.encode('utf-8') if k else None,
-                    acks='all',  # Wait for all replicas to acknowledge
-                    retries=3,
-                    max_in_flight_requests_per_connection=1,
-                )
-                logger.info("Kafka producer created successfully")
-            except KafkaError as e:
-                logger.error(f"Failed to create Kafka producer: {e}")
-                raise
-        return cls._producer
+        try:
+            broker_address = kafka_config["bootstrap_servers"]
+            logger.info(f"Creating Kafka producer with broker: {broker_address}")
+            producer = KafkaProducer(
+                bootstrap_servers=broker_address,
+                value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+                key_serializer=lambda k: k.encode('utf-8') if k else None,
+                acks='all',  # Wait for all replicas to acknowledge
+                retries=3,
+                max_in_flight_requests_per_connection=1,
+                request_timeout_ms=30000,  # 30 seconds
+                api_version_auto_timeout_ms=5000,  # 5 seconds for version detection
+            )
+            logger.info("Kafka producer created successfully")
+            return producer
+        except KafkaError as e:
+            logger.error(f"Failed to create Kafka producer: {e}")
+            raise
     
     @classmethod
     def get_consumer(cls, topics: list[str], group_id: Optional[str] = None) -> KafkaConsumer:

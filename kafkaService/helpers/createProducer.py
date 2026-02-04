@@ -2,7 +2,7 @@
 Kafka Producer Helper
 Provides utilities for producing messages to Kafka topics
 """
-from kafka.errors import KafkaError
+from kafka.errors import KafkaError, NoBrokersAvailable
 import logging
 from typing import Any, Optional
 from ..connection import KafkaConnection
@@ -34,9 +34,10 @@ class ProducerHelper:
         Returns:
             bool: True if message was sent successfully
         """
-        producer = KafkaConnection.get_producer()
-        
+        producer = None
         try:
+            producer = KafkaConnection.get_producer()
+            
             future = producer.send(
                 topic,
                 value=message,
@@ -45,7 +46,7 @@ class ProducerHelper:
             )
             
             # Block until message is sent or timeout
-            record_metadata = future.get(timeout=10)
+            record_metadata = future.get(timeout=30)
             
             logger.info(
                 f"Message sent to topic '{topic}' "
@@ -56,6 +57,15 @@ class ProducerHelper:
         except KafkaError as e:
             logger.error(f"Failed to send message to topic '{topic}': {e}")
             return False
+            
+        finally:
+            # Always close the producer to free resources
+            if producer:
+                try:
+                    producer.flush()
+                    producer.close(timeout=5)
+                except Exception:
+                    pass  # Ignore errors during cleanup
     
     @staticmethod
     def send_batch(
