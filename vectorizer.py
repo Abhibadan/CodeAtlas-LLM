@@ -7,6 +7,9 @@ from config import chroma_config, google_config, mongo_config
 from bullMQ import WorkerLoader, WorkerRegistry
 import asyncio
 import signal
+import logging
+from kafkaService import ProducerHelper
+logger = logging.getLogger(__name__)
 
 # Initialize MongoDB connection using MongoEngine
 init_db(database_name=mongo_config["db"], host=mongo_config["uri"])
@@ -15,15 +18,13 @@ init_db(database_name=mongo_config["db"], host=mongo_config["uri"])
 async def process_vectorizer_job(job, job_token):
     """Process a vectorizer job"""
     try:
-        print("job", job)
-        print("job token", job_token)
+
         # Extract job data
         job_data = job.data
 
-        print("job data", job_data)
         project = Project.find_by_id(ObjectId(job_data["projectId"]))
         
-        print("project parsing", project)
+        # print("project parsing", project)
 
         # Get markdowns and descriptions for this project with matching scanVersion
         markdowns = Markdown.objects(
@@ -136,21 +137,41 @@ async def process_vectorizer_job(job, job_token):
         # Mark job as completed
         await job.update(status='completed')
         
-        print(f"✓ Job {job.id} processed successfully!")
+        # logger.info(f"✓ Job {job.id} processed successfully!")
         
     except Exception as e:
         # Mark job as failed
         await job.update(status='failed', error=str(e))
         
-        print(f"✗ Error processing job {job.id}: {e}")
-        raise
+        # print(f"✗ Error processing job {job.id}: {e}")
+        raise 
 
+
+def vectorixation_completed_callback(job, job_token):
+    """Callback function to be called when a vectorization job is completed"""
+    try:
+        # Send a message to Kafka to notify the frontend
+        ProducerHelper.send_message(
+            topic_name="codeatlas-llm-events",
+            message={
+                "type": "vectorization_completed",
+                "projectId": job.data["projectId"],
+                "jobId": job.id
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error sending vectorization completed message: {e}")
 
 async def main():
     """Main async function to properly handle worker lifecycle"""
     worker_loader = WorkerLoader(WorkerRegistry.VECTORIZER_WORKER.value, process_vectorizer_job)
     try:
         # Initialize worker inside async context
+        worker_loader.on_completed(vectorixation_completed_callback)
+        worker_loader.on_failed(lambda **kwargs: logger.error(f"✗ Job {kwargs['job'].id} failed: {kwargs['error']}"))
+        worker_loader.on_error(lambda **kwargs: logger.error(f"❌ Worker error: {kwargs['error']}"))
+        worker_loader.on_ready(lambda **kwargs: logger.info("✓ Worker is ready"))
+
         await worker_loader.start_worker()
     finally:
         # Clean up resources
@@ -165,9 +186,9 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n✓ Worker stopped")
+        logger.info("\n✓ Worker stopped")
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        logger.error(f"\n❌ Error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

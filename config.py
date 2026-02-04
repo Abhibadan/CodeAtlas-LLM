@@ -38,3 +38,9 @@ redis_config = {
     "db": int(os.getenv("REDIS_DB", "0")),
     "password": os.getenv("REDIS_PASSWORD"),
 }
+
+# Kafka Configuration
+kafka_config = {
+    "bootstrap_servers": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092").split(","),
+    "group_id": os.getenv("KAFKA_GROUP_ID", "codeatlas-llm-group"),
+}
