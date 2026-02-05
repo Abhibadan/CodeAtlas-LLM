@@ -152,8 +152,8 @@ def vectorixation_completed_callback(job, job_token):
     try:
         print("Sending vectorization completed message...")
         # Send a message to Kafka to notify the frontend
-        producer = KafkaProducer()
-        producer.send(
+        producer = ProducerHelper()
+        producer.send_message(
             topic=TopicRegistry.CODEATLAS_LLM_EVENTS.value,
             message={
                 "type": "vectorization_completed",
