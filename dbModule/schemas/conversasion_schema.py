@@ -33,7 +33,7 @@ class Conversation(Document):
     role = StringField(choices=[s.value for s in ConversationRoleEnum], default=ConversationRoleEnum.USER.value)
 
     meta = {
-        'collection': 'chats',  # Collection name
+        'collection': 'conversations',  # Collection name
         'strict': False,  # Allow unknown fields like __v from Mongoose
         'indexes': [
             'chat_id',

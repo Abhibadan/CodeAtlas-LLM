@@ -29,7 +29,12 @@ class User(Document):
         'strict': False,  # Allow unknown fields like __v from Mongoose
         'indexes': [
             'full_name',
-            'email',
+            {
+                'fields': ['email'],
+                'unique': True,
+                'partialFilterExpression': {'is_deleted': False},
+                'name': 'email_1'
+            },
             'is_deleted',
             'status',
             'active_role',

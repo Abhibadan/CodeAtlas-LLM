@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query, Body
+from fastapi import FastAPI, Query, Body, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from requestDTOs.chatDTO import ChatDTO
@@ -17,17 +17,20 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://192.168.5.80:3000", "http://localhost:5500"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+
 )
 
-@app.post("/chat")
-async def chat(data: ChatDTO = Body(...)):  # Make endpoint async
+app.add_middleware(AuthMiddleware)
+
+@app.post("/api/conversation")
+async def conversation(request: Request, data: ChatDTO = Body(...)):  # Make endpoint async
     question = data.query
     pID = data.pid
-    
+
     # Validate pID before converting to ObjectId
     if not pID or not all(c in "0123456789abcdefABCDEF" for c in pID) or len(pID) != 24:
         return StreamingResponse(
@@ -123,13 +126,14 @@ async def chat(data: ChatDTO = Body(...)):  # Make endpoint async
             yield f"data: [DONE]\n\n"
 
             # store in db
-            conversation = Conversation.save(
+            conversation = Conversation(
                 chat_id=ObjectId(data.cid),
-                user_id=ObjectId(data.uid),
+                user_id=request.state.user.id,
                 content=full_response,
                 type=ConversationTypeEnum.TEXT.value,
                 role=ConversationRoleEnum.ASSISTANT.value
             )
+            conversation.save()
             
         except Exception as e:
             print(f"Error in stream: {e}")

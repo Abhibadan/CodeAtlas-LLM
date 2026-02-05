@@ -451,6 +451,12 @@
                         value="698471709e84446bbe7a35fd" maxlength="24">
                     <small>24-character hexadecimal MongoDB ObjectId</small>
                 </div>
+                <div class="input-group">
+                    <label for="conversionId">Conversion ID:</label>
+                    <input type="text" id="conversionId" placeholder="Enter 24-character conversion ID"
+                        value="698471709e84446bbe7a35fd" maxlength="24">
+                    <small>24-character hexadecimal MongoDB ObjectId</small>
+                </div>
             </div>
         </div>
 
@@ -536,6 +542,7 @@
             const query = document.getElementById('query').value.trim();
             const projectId = document.getElementById('projectId').value.trim();
             const authToken = document.getElementById('authToken').value.trim();
+            const conversionId = document.getElementById('conversionId').value.trim();
 
             // Validation
             if (!authToken) {
@@ -597,7 +604,7 @@
             scrollToBottom();
 
             try {
-                const response = await fetch('http://localhost:3000/chat', {
+                const response = await fetch('http://localhost:3000/api/conversation', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${authToken}`,
@@ -605,7 +612,8 @@
                     },
                     body: JSON.stringify({
                         query: query,
-                        pid: projectId
+                        pid: projectId,
+                        cid: conversionId
                     })
                 });
 
