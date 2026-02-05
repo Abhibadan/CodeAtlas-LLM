@@ -10,11 +10,23 @@ load_dotenv()
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        print(request.headers)
-        # token = request.headers.get("Authorization")
-        token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5Nzg1MGU2Y2RmNTI0NTk0ZDk0MWVhZCIsImlhdCI6MTc3MDI5ODM1MiwiZXhwIjoxNzcwMzAxOTUyfQ.QaJXM3m6pEGx9RXvwY_DByJ7AHyvjrS7q1zXeHjLdts"
+        # Skip authentication for OPTIONS requests (CORS preflight)
+        if request.method == "OPTIONS":
+            return await call_next(request)
+        
+        # Get authorization header
+        token = request.headers.get("authorization")
+        
+        # Check if token exists
         if not token:
             return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+        
+        # Extract token from "Bearer <token>" format
+        try:
+            token = token.split(" ")[1]
+        except IndexError:
+            return JSONResponse(status_code=401, content={"detail": "Invalid authorization format"})
+        
         try:
             token_data = decode(token, os.getenv("JWT_SECRET"), algorithms=["HS256"])
             if not token_data.get("id"):

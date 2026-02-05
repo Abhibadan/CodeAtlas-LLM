@@ -26,7 +26,6 @@ class VectorDb:
             collection_name=collection,
             embedding_function=embeddings
         )
-        print(self.client)
     
     def add_documents(self, documents):
         self.client.add(documents)

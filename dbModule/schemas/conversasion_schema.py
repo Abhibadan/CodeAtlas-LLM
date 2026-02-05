@@ -31,6 +31,8 @@ class Conversation(Document):
     content = StringField()
     type = StringField(choices=[s.value for s in ConversationTypeEnum], default=ConversationTypeEnum.TEXT.value)
     role = StringField(choices=[s.value for s in ConversationRoleEnum], default=ConversationRoleEnum.USER.value)
+    createdAt = DateTimeField(default=datetime.utcnow)
+    updatedAt = DateTimeField(default=datetime.utcnow)
 
     meta = {
         'collection': 'conversations',  # Collection name
@@ -40,8 +42,9 @@ class Conversation(Document):
             'user_id',
             'type',
             'role',
+            'createdAt',
         ],
-        'ordering': ['_id']  # Default ordering
+        'ordering': ['-createdAt']  # Default ordering
     }
     
     def save(self, *args, **kwargs):
