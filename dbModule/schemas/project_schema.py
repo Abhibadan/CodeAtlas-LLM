@@ -19,29 +19,6 @@ class ProjectStatusEnum(str, enum.Enum):
 
 
 class Project(Document):
-    """
-    Project Schema - Mongoose-like ODM using MongoEngine
-    
-    Usage:
-        # Create
-        project = Project(
-            title="My Project",
-            description="Description",
-            status=ProjectStatusEnum.Active
-        )
-        project.save()
-        
-        # Query
-        projects = Project.objects(status=ProjectStatusEnum.Active)
-        project = Project.objects(title="My Project").first()
-        
-        # Update
-        project.title = "Updated Title"
-        project.save()
-        
-        # Delete
-        project.delete()
-    """
     
     # Reference fields (like Mongoose ref)
     created_by = ObjectIdField()

@@ -3,22 +3,6 @@ from datetime import datetime
 
 
 class Markdown(Document):
-    """
-    Markdown Schema - MongoEngine ODM
-    
-    Usage:
-        # Create
-        markdown = Markdown(
-            projectId=ObjectId(pid),
-            filePath="/path/to/file.md",
-            content="# Markdown content"
-        )
-        markdown.save()
-        
-        # Query
-        markdowns = Markdown.objects(projectId=project_id)
-        markdown = Markdown.objects(filePath="/path/to/file.md").first()
-    """
     
     projectId = ObjectIdField(required=True)
     filePath = StringField()

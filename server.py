@@ -1,10 +1,10 @@
 from fastapi import FastAPI, Query, Body
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from requestDTOs.chatDTO import ChatDTO, DocumentDTO
+from requestDTOs.chatDTO import ChatDTO
 from middleware.authMiddleware import AuthMiddleware
 from components.ragAgent import RagAgent
-from dbModule import init_db, Project
+from dbModule import init_db, Project, Conversation, ConversationTypeEnum, ConversationRoleEnum
 from bson import ObjectId
 import json     
 import asyncio
@@ -123,24 +123,26 @@ async def chat(data: ChatDTO = Body(...)):  # Make endpoint async
             yield f"data: [DONE]\n\n"
 
             # store in db
+            conversation = Conversation.save(
+                chat_id=ObjectId(data.cid),
+                user_id=ObjectId(data.uid),
+                content=full_response,
+                type=ConversationTypeEnum.TEXT.value,
+                role=ConversationRoleEnum.ASSISTANT.value
+            )
             
         except Exception as e:
             print(f"Error in stream: {e}")
-            # error_data = {
-            #     "error": {
-            #         "message": str(e),
-            #         "type": "stream_error"
-            #     }
-            # }
-            yield f"data: {json.dumps({
-                "id": f"chunk-{chunk_index}",
-                "index": chunk_index,
+            error_chunk = {
+                "id": f"chunk-0",
+                "index": 0,
                 "object": "chat.error.chunk",
                 "delta": {
                     "content": "Something went wrong! Please try again."
                 },
                 "finish_reason": "error"
-            })}\n\n"
+            }
+            yield f"data: {json.dumps(error_chunk)}\n\n"
     
     return StreamingResponse(
         generate_stream(),
