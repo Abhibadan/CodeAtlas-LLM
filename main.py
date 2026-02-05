@@ -1,18 +1,17 @@
 import subprocess
 import signal
 import sys
-from kafkaService import KafkaConnection, KafkaAdmin, TopicRegistry
+from kafkaService import KafkaAdmin, TopicRegistry
 from config import kafka_config
 import logging
 logger = logging.getLogger(__name__)
 # Global list to track subprocesses
 processes = []
-
+kafka_admin = KafkaAdmin()
 def cleanup_processes(signum=None, frame=None):
     """Terminate all child processes"""
     logger.info("Shutting down Kafka connections...")
-    KafkaConnection.close_producer()
-    KafkaConnection.close_admin_client()
+    kafka_admin.close_all()
     logger.info("Kafka connections closed.")
     logger.info("Shutting down subprocesses...")
     for proc in processes:
@@ -43,11 +42,9 @@ def main():
     # Try to create Kafka topics (optional - won't crash if Kafka is not ready)
     try:
         logger.info("Creating Kafka topics...")
-        print(f"🔍 DEBUG: kafka_config = {kafka_config}")
-        print("topics : ",KafkaAdmin.list_topics())
-        exists = KafkaAdmin.topic_exists(TopicRegistry.CODEATLAS_LLM_EVENTS.value)
+        exists = kafka_admin.topic_exists(TopicRegistry.CODEATLAS_LLM_EVENTS.value)
         if not exists:
-            KafkaAdmin.create_topic(
+            kafka_admin.create_topic(
                 topic_name=TopicRegistry.CODEATLAS_LLM_EVENTS.value,
                 num_partitions=4,
                 replication_factor=1

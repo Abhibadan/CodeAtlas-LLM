@@ -2,21 +2,37 @@
 Kafka Producer Helper
 Provides utilities for producing messages to Kafka topics
 """
-from kafka.errors import KafkaError, NoBrokersAvailable
-import logging
+from kafka.errors import KafkaError
 from typing import Any, Optional
-from ..connection import KafkaConnection
+from config import kafka_config
+from kafkaService import KafkaAdmin
+import json
+import logging
 
 logger = logging.getLogger(__name__)
 
 
-class ProducerHelper:
+class ProducerHelper(KafkaAdmin):
     """
     Helper class for Kafka message production
     """
+    __producer = None
+    def __init__(self):
+        """
+        Create a new Kafka producer instance (no caching to avoid stale connections)
+        
+        Returns:
+            KafkaProducer: New Kafka producer instance
+        """
+        try:
+            self.__producer = self._create_producer()
+            logger.info("Kafka producer created")
+        except KafkaError as e:
+            logger.error(f"Failed to create Kafka producer: {e}")
+            raise
     
-    @staticmethod
     def send_message(
+        self,
         topic: str,
         message: Any,
         key: Optional[str] = None,
@@ -34,11 +50,8 @@ class ProducerHelper:
         Returns:
             bool: True if message was sent successfully
         """
-        producer = None
         try:
-            producer = KafkaConnection.get_producer()
-            
-            future = producer.send(
+            future = self.__producer.send(
                 topic,
                 value=message,
                 key=key,
@@ -60,15 +73,15 @@ class ProducerHelper:
             
         finally:
             # Always close the producer to free resources
-            if producer:
+            if self.__producer:
                 try:
-                    producer.flush()
-                    producer.close(timeout=5)
+                    self.__producer.flush()
+                    self.__producer.close(timeout=5)
                 except Exception:
                     pass  # Ignore errors during cleanup
     
-    @staticmethod
     def send_batch(
+        self,
         topic: str,
         messages: list[dict],
         key_field: Optional[str] = None
@@ -84,7 +97,6 @@ class ProducerHelper:
         Returns:
             tuple: (successful_count, failed_count)
         """
-        producer = KafkaConnection.get_producer()
         successful = 0
         failed = 0
         
@@ -92,7 +104,7 @@ class ProducerHelper:
             try:
                 key = message.get(key_field) if key_field else None
                 
-                future = producer.send(
+                future = self.__producer.send(
                     topic,
                     value=message,
                     key=key
@@ -109,7 +121,7 @@ class ProducerHelper:
                 failed += 1
         
         # Flush all pending messages
-        producer.flush()
+        self.__producer.flush()
         
         logger.info(
             f"Batch send to topic '{topic}' completed: "
@@ -117,11 +129,9 @@ class ProducerHelper:
         )
         return successful, failed
     
-    @staticmethod
-    def flush():
+    def flush(self):
         """
         Flush all pending messages from the producer
         """
-        producer = KafkaConnection.get_producer()
-        producer.flush()
+        self.__producer.flush()
         logger.info("Producer flushed")
