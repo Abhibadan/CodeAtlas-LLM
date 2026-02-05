@@ -6,7 +6,7 @@ load_dotenv()
 # ChromaDB Configuration
 chroma_config = {
     "host": os.getenv("CHROMA_HOST"),
-    "host": os.getenv("CHROMA_PORT"),
+    "port": os.getenv("CHROMA_PORT"),
     "collection": os.getenv("CHROMA_COLLECTION"),
 }
 

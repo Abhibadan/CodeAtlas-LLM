@@ -31,7 +31,14 @@ async def chat(data: ChatDTO = Body(...)):  # Make endpoint async
     # Validate pID before converting to ObjectId
     if not pID or not all(c in "0123456789abcdefABCDEF" for c in pID) or len(pID) != 24:
         return StreamingResponse(
-            iter([json.dumps({"error": "Invalid or missing Project ID"})]), 
+            iter([json.dumps({
+                "id": "chunk-0",
+                "object": "chat.error.chunk",
+                "delta": {
+                    "content": "Invalid or missing Project ID"
+                },
+                "finish_reason": "error"
+            })]), 
             status_code=400,
             media_type="application/json"
         )
@@ -43,44 +50,57 @@ async def chat(data: ChatDTO = Body(...)):  # Make endpoint async
         # Check if project exists before processing
         if not project:
             return StreamingResponse(
-                iter([json.dumps({"error": "Project not found"})]), 
+                iter([json.dumps({
+                    "id": "chunk-0",
+                    "index": 0,
+                    "object": "chat.error.chunk",
+                    "delta": {
+                        "content": "Project not found"
+                    },
+                    "finish_reason": "error"
+                })]), 
                 status_code=404,
                 media_type="application/json"
             )
         
-        # Extract uuid before converting to JSON
         project_uuid = project.uuid
-        project_json = project.to_json()
         
     except Exception as e:
         return StreamingResponse(
-            iter([json.dumps({"error": f"Database lookup failed - {str(e)}"})]), 
+            iter([json.dumps({
+                "id": "chunk-0",
+                "index": 0,
+                "object": "chat.error.chunk",
+                "delta": {
+                    "content": f"Database error"
+                },
+                "finish_reason": "error"
+            })]), 
             status_code=500,
             media_type="application/json"
         )
     
-    print(project_json)
     # Use the extracted uuid
     agent = RagAgent(project=project_uuid)
     
     async def generate_stream():
         try:
             chunk_index = 0
+            full_response = ""
             
             # Stream chunks from RAG agent
             for chunk in agent.getRagChain().stream(question):
                 if chunk:
+                    full_response += chunk
                     # Format as SSE with JSON payload
                     chunk_data = {
                         "id": f"chunk-{chunk_index}",
-                        "object": "chat.completion.chunk",
-                        "choices": [{
-                            "index": 0,
-                            "delta": {
-                                "content": chunk
-                            },
-                            "finish_reason": None
-                        }]
+                        "index": chunk_index,
+                        "object": "chat.data.chunk",
+                        "delta": {
+                            "content": chunk
+                        },
+                        "finish_reason": None
                     }
                     
                     yield f"data: {json.dumps(chunk_data)}\n\n"
@@ -92,15 +112,17 @@ async def chat(data: ChatDTO = Body(...)):  # Make endpoint async
             # Send completion signal
             final_chunk = {
                 "id": f"chunk-{chunk_index}",
+                "index": chunk_index,
                 "object": "chat.completion.chunk",
-                "choices": [{
-                    "index": 0,
-                    "delta": {},
-                    "finish_reason": "stop"
-                }]
+                "delta": {
+                    "content": ""
+                },
+                "finish_reason": "stop"
             }
             yield f"data: {json.dumps(final_chunk)}\n\n"
             yield f"data: [DONE]\n\n"
+
+            # store in db
             
         except Exception as e:
             print(f"Error in stream: {e}")
@@ -110,7 +132,15 @@ async def chat(data: ChatDTO = Body(...)):  # Make endpoint async
             #         "type": "stream_error"
             #     }
             # }
-            yield f"data: {json.dumps({'error': 'Something went wrong! Please try again.'})}\n\n"
+            yield f"data: {json.dumps({
+                "id": f"chunk-{chunk_index}",
+                "index": chunk_index,
+                "object": "chat.error.chunk",
+                "delta": {
+                    "content": "Something went wrong! Please try again."
+                },
+                "finish_reason": "error"
+            })}\n\n"
     
     return StreamingResponse(
         generate_stream(),
@@ -125,4 +155,4 @@ async def chat(data: ChatDTO = Body(...)):  # Make endpoint async
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=4000)
+    uvicorn.run(app, host="0.0.0.0", port=3000)

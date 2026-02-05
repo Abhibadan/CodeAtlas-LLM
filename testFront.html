@@ -448,7 +448,7 @@
                 <div class="input-group">
                     <label for="projectId">Project ID:</label>
                     <input type="text" id="projectId" placeholder="Enter 24-character project ID"
-                        value="697da81b54a3ba9ca6b66841" maxlength="24">
+                        value="698471709e84446bbe7a35fd" maxlength="24">
                     <small>24-character hexadecimal MongoDB ObjectId</small>
                 </div>
             </div>
@@ -664,12 +664,31 @@
                                     throw new Error(parsed.error.message || parsed.error);
                                 }
 
-                                // Extract content (OpenAI-style format)
-                                if (parsed.choices &&
-                                    parsed.choices[0].delta &&
-                                    parsed.choices[0].delta.content) {
+                                // Handle different response structures
+                                if (parsed && parsed.object && parsed.choices && parsed.choices.length > 0) {
 
-                                    const content = parsed.choices[0].delta.content;
+                                    // Type 1: Data chunk with actual content
+                                    if (parsed.object === 'chat.data.chunk' && parsed.choices[0].delta && parsed.choices[0].delta.content) {
+                                        const content = parsed.choices[0].delta.content;
+                                        fullResponse += content;
+
+                                        // Render markdown during streaming
+                                        if (currentStreamDiv) {
+                                            currentStreamDiv.innerHTML = marked.parse(fullResponse);
+                                        }
+                                        scrollToBottom();
+                                    }
+
+                                    // Type 2 & 3: Completion chunks with finish_reason
+                                    else if (parsed.object === 'chat.completion.chunk' && parsed.choices[0].finish_reason === 'stop') {
+                                        console.log('Received completion chunk with finish_reason:', parsed.choices[0].finish_reason);
+                                        // Stream is finishing, no action needed
+                                        // The final render will happen after the loop completes
+                                    }
+                                }
+                                // Fallback: Handle legacy OpenAI-style format (direct delta without choices)
+                                else if (parsed && parsed.delta && parsed.delta.content) {
+                                    const content = parsed.delta.content;
                                     fullResponse += content;
 
                                     // Render markdown during streaming
