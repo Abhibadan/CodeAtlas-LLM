@@ -24,6 +24,7 @@ class RagAgent:
                 3. Import relationships and component interconnections
                 4. Associated documentation and descriptive comments
                 5. Unique identifiers for tracking each code component
+                6. Provide the code snippet of the function/method/class that the user is asking about
 
                 YOUR RESPONSIBILITIES:
                 1. Code Understanding:
@@ -31,6 +32,7 @@ class RagAgent:
                 - Trace execution flows and data dependencies
                 - Identify design patterns and architectural decisions
                 - Clarify complex logic and algorithms
+                - Provide the code snippet of the function/method/class that the user is asking about
 
                 2. Code Summarization:
                 - Provide concise overviews of modules or functions
@@ -75,6 +77,7 @@ class RagAgent:
                 RESPONSE STRUCTURE:
                 - Start with a direct answer to the user's query
                 - Provide relevant code context with node references
+                - Provide the code snippet if user ask for it. Code is available in graph data as property 'sourceCode'.
                 - Explain dependencies and relationships when relevant
                 - Offer actionable suggestions with clear reasoning
                 - Use structured formatting for clarity (but avoid bullet points unless requested)
@@ -108,11 +111,12 @@ class RagAgent:
     #     ("human", "{question}"),
     # ])
 
-    def __init__(self,project,chatId,use_chat_history=True):
-        self.__vectorStore = VectorDb(chroma_config["host"],chroma_config["port"],project,google_config["embedding_model"],google_config["api_key"])
-        self.__graphStore = GraphDb(neo4j_config["uri"],neo4j_config["user"],neo4j_config["password"],project)
-        self.__chatId = ObjectId(chatId)
-        self.__use_chat_history = use_chat_history
+    def __init__(self,data):
+        self.__vectorStore = VectorDb(chroma_config["host"],chroma_config["port"],data["project"],google_config["embedding_model"],google_config["api_key"])
+        self.__graphStore = GraphDb(neo4j_config["uri"],neo4j_config["user"],neo4j_config["password"],data["project"])
+        self.__chatId = ObjectId(data["chatId"])
+        self.__convId = data.get("convId",None)
+        self.__use_chat_history = data.get("use_chat_history", True)
         self.__llm = ChatGoogleGenerativeAI(
             model=google_config["chat_model"],
             google_api_key=google_config["api_key"]
@@ -142,14 +146,20 @@ class RagAgent:
             "graph_context": graph_context,
             "doc_context": doc_context,
             "chat_history": chat_history,
-            "use_chat_history": self.__use_chat_history
+            "use_chat_history": self.__use_chat_history if not self.__convId else True
         }
 
     def __hybrid_retrieval(self, question: str):
         vectorData = self.__vectorStore.retrieve_with_metadata(question)
         cypherQuery = self.__graphStore.retrieve(self.__llm, question, vectorData["content"], vectorData["metadata"]["relatedNodeIds"])
-        chatHistory = Conversation.find_by_chat_id(self.__chatId,limit=6)
+        
+        if self.__convId:
+            chatHistory = Conversation.find_by_id(ObjectId(self.__convId))
+        else:
+            chatHistory = Conversation.find_by_chat_id(self.__chatId,limit=6)
+        
         chatHistoryString = "\n".join([f"{msg['role']}: {msg['content']}" for msg in chatHistory])
+
         return self.__create_hybrid_context(vectorData["content"], cypherQuery, chatHistoryString)
     
     def getRagChain(self):
