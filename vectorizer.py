@@ -50,8 +50,8 @@ async def process_vectorizer_job(job, job_token):
                 chroma_config["host"],
                 chroma_config["port"],
                 project.uuid,  # Using backward compatible property
-                google_config["EMBEDDING_MODEL"],
-                google_config["GOOGLE_API_KEY"]
+                google_config["embedding_model"],
+                google_config["api_key"]
             )
             vectorStore.clear_collection()
         else:

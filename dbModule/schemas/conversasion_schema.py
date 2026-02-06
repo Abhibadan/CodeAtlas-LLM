@@ -58,9 +58,9 @@ class Conversation(Document):
         return cls.objects(id=id).first()
     
     @classmethod
-    def find_by_chat_id(cls, chat_id):
+    def find_by_chat_id(cls, chat_id,limit=10):
         """Find conversation by chat_id"""
-        return cls.objects(chat_id=chat_id)
+        return cls.objects(chat_id=chat_id).limit(limit)
     
     
     @classmethod

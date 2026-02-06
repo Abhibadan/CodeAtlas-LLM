@@ -30,7 +30,7 @@ app.add_middleware(AuthMiddleware)
 async def conversation(request: Request, data: ChatDTO = Body(...)):  # Make endpoint async
     question = data.query
     pID = data.pid
-
+    print(data)
     # Validate pID before converting to ObjectId
     if not pID or not all(c in "0123456789abcdefABCDEF" for c in pID) or len(pID) != 24:
         return StreamingResponse(
@@ -84,13 +84,20 @@ async def conversation(request: Request, data: ChatDTO = Body(...)):  # Make end
         )
     
     # Use the extracted uuid
-    agent = RagAgent(project=project_uuid)
+    agent = RagAgent(project=project_uuid,chatId=data.cid)
     
     async def generate_stream():
         try:
             chunk_index = 0
             full_response = ""
-            
+            conversation = Conversation(
+                chat_id=ObjectId(data.cid),
+                user_id=request.state.user.id,
+                content=question,
+                type=ConversationTypeEnum.TEXT.value,
+                role=ConversationRoleEnum.USER.value
+            )
+            conversation.save()
             # Stream chunks from RAG agent
             for chunk in agent.getRagChain().stream(question):
                 if chunk:
@@ -134,7 +141,8 @@ async def conversation(request: Request, data: ChatDTO = Body(...)):  # Make end
                 role=ConversationRoleEnum.ASSISTANT.value
             )
             conversation.save()
-            
+            print("conversation saved")
+            print("full_response : ",full_response)
         except Exception as e:
             print(f"Error in stream: {e}")
             error_chunk = {

@@ -1,5 +1,7 @@
 from dbModule.VectorDb import VectorDb
 from dbModule.GraphDb import GraphDb
+from dbModule import Conversation
+from bson import ObjectId
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
@@ -12,6 +14,8 @@ class RagAgent:
                 CONTEXT PROVIDED:
                 - Code Graph Data: {graph_context}
                 - Documentation: {doc_context}
+                - Chat History: {chat_history}
+                - User Request To Use Chat History: {use_chat_history}
 
                 YOUR CAPABILITIES:
                 You have access to a comprehensive representation of the codebase including:
@@ -57,6 +61,8 @@ class RagAgent:
                 7. If multiple approaches exist, present trade-offs clearly
                 8. Always consider backward compatibility and existing patterns
                 9. Don't mention any id of nodes of graph database
+                10. Use Chat history only on question related to old chats
+                11. Use Chat history only on user request to use chat history
 
                 CODE FORMATTING RULE:
                 When providing code examples or suggestions, you MUST encapsulate ALL code blocks using standard Markdown format:
@@ -73,6 +79,8 @@ class RagAgent:
                 - Offer actionable suggestions with clear reasoning
                 - Use structured formatting for clarity (but avoid bullet points unless requested)
                 - Keep explanations concise yet comprehensive
+                - If the user asks to modify code, provide the modified code in the specified format
+                - If the user asks to explain code, provide the explanation in the specified format
 
                 TONE:
                 - Be clear, precise, and technical
@@ -100,9 +108,11 @@ class RagAgent:
     #     ("human", "{question}"),
     # ])
 
-    def __init__(self,project):
+    def __init__(self,project,chatId,use_chat_history=True):
         self.__vectorStore = VectorDb(chroma_config["host"],chroma_config["port"],project,google_config["embedding_model"],google_config["api_key"])
         self.__graphStore = GraphDb(neo4j_config["uri"],neo4j_config["user"],neo4j_config["password"],project)
+        self.__chatId = ObjectId(chatId)
+        self.__use_chat_history = use_chat_history
         self.__llm = ChatGoogleGenerativeAI(
             model=google_config["chat_model"],
             google_api_key=google_config["api_key"]
@@ -116,24 +126,31 @@ class RagAgent:
             | StrOutputParser()
         )
     
-    def __create_hybrid_context(self, chroma_docs: str, neo4j_context: str) -> Dict[str, str]:
+    def __create_hybrid_context(self, chroma_docs: str, neo4j_context: str, chatHistoryString: str) -> Dict[str, str]:
         """Combine ChromaDB and Neo4j contexts"""
-        graph_context, doc_context= "", ""
+        graph_context, doc_context, chat_history = "", "", ""
         if neo4j_context:
             graph_context = neo4j_context
         
         if chroma_docs:
             doc_context = chroma_docs
         
+        if chatHistoryString:
+            chat_history = chatHistoryString
+        
         return {
             "graph_context": graph_context,
-            "doc_context": doc_context
+            "doc_context": doc_context,
+            "chat_history": chat_history,
+            "use_chat_history": self.__use_chat_history
         }
 
     def __hybrid_retrieval(self, question: str):
         vectorData = self.__vectorStore.retrieve_with_metadata(question)
         cypherQuery = self.__graphStore.retrieve(self.__llm, question, vectorData["content"], vectorData["metadata"]["relatedNodeIds"])
-        return self.__create_hybrid_context(vectorData["content"], cypherQuery)
+        chatHistory = Conversation.find_by_chat_id(self.__chatId,limit=6)
+        chatHistoryString = "\n".join([f"{msg['role']}: {msg['content']}" for msg in chatHistory])
+        return self.__create_hybrid_context(vectorData["content"], cypherQuery, chatHistoryString)
     
     def getRagChain(self):
         return self.__hybrid_rag_chain

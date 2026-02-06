@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from jwt import decode,ExpiredSignatureError,InvalidTokenError
 from dotenv import load_dotenv
+import json
 from dbModule import User
 import os
 from bson import ObjectId
@@ -10,28 +11,20 @@ load_dotenv()
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # Skip authentication for OPTIONS requests (CORS preflight)
-        if request.method == "OPTIONS":
-            return await call_next(request)
-        
-        # Get authorization header
-        token = request.headers.get("authorization")
-        
+        print("AuthMiddleware")
+        print("Path params:", request.headers)
+        token = request.cookies.get("admin_auth")
+        print(token)
         # Check if token exists
         if not token:
             return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
-        
-        # Extract token from "Bearer <token>" format
-        try:
-            token = token.split(" ")[1]
-        except IndexError:
-            return JSONResponse(status_code=401, content={"detail": "Invalid authorization format"})
-        
         try:
             token_data = decode(token, os.getenv("JWT_SECRET"), algorithms=["HS256"])
+            print(token_data)
             if not token_data.get("id"):
                 return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
             user = User.find_by_id(ObjectId(token_data["id"]))
+            print(user)
             if not user:
                 return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
             request.state.user = user
