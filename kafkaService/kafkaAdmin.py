@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 class _kafkaStore:
     __store_instance: Optional['_kafkaStore'] = None
     __store_client: Optional[KafkaAdminClient] = None
-    __producers: list[KafkaProducer] = []
     __consumers: list[KafkaConsumer] = []
     
     def __new__(cls, *args, **kwargs):
@@ -54,8 +53,6 @@ class _kafkaStore:
         self.__consumers.extend(consumers)
         
     def close(self):
-        for producer in self.__producers:
-            producer.close()
         for consumer in self.__consumers:
             consumer.close()
         self.__store_client.close()

@@ -135,3 +135,9 @@ class ProducerHelper(KafkaAdmin):
         """
         self.__producer.flush()
         logger.info("Producer flushed")
+    def close(self):
+        """
+        Close the producer
+        """
+        self.__producer.close()
+        logger.info("Producer closed")

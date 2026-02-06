@@ -161,6 +161,7 @@ def vectorixation_completed_callback(job, job_token):
                 "jobId": job.id
             }
         )
+        producer.close()
         logger.info(f"✓ Sent vectorization completed event for project {job.data['projectId']}")
     except Exception as e:
         logger.error(f"Error sending vectorization completed message: {e}")
