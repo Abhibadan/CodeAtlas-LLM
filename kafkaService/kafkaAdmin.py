@@ -161,7 +161,6 @@ class KafkaAdmin:
                 request_timeout_ms=30000,  # 30 seconds
                 api_version_auto_timeout_ms=5000,  # 5 seconds for version detection
             )
-            self.__kafkaStore.store_producer(producer)
             return producer
         except KafkaError as e:
             # logger.error(f"Failed to create producer: {e}")

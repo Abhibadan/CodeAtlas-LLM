@@ -34,6 +34,7 @@ class WorkerLoader:
         while True:
             try:
                 await self.__worker.run()
+                print("Worker is running")
                 break  # If run() completes normally, exit loop
             except ValueError as e:
                 # Suppress the "Set of Tasks/Futures is empty" error from BullMQ library

@@ -18,7 +18,7 @@ class Markdown(Document):
     
     # Meta configuration
     meta = {
-        'collection': 'markdowns',
+        'collection': 'projectmarkdowns',
         'strict': False,  # Allow unknown fields like __v from Mongoose
         'indexes': [
             'projectId',
@@ -69,7 +69,7 @@ class Description(Document):
     
     # Meta configuration
     meta = {
-        'collection': 'descriptions',
+        'collection': 'projectdescriptions',
         'strict': False,  # Allow unknown fields like __v from Mongoose
         'indexes': [
             'projectId',

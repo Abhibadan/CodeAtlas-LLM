@@ -5,7 +5,7 @@ class ChatDTO(BaseModel):
     pid: str
     cid: str
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "query": "Hello World",
                 "pid": "675c2b3b3b3b3b3b3b3b3b3b",
