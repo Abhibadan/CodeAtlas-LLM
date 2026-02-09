@@ -14,59 +14,121 @@ class GraphDb:
         self.driver.close()
     
     def get_schema(self) -> str:
+        """Get database schema by sampling actual data - no deprecated procedures"""
         if self._schema_cache:
             return self._schema_cache
         
         with self.driver.session(database=self.database) as session:
             schema_parts = []
-        
-            # Get node labels and their properties
-            node_info = session.run("""
-                CALL db.schema.nodeTypeProperties() 
-                YIELD nodeLabels, propertyName, propertyTypes
-                RETURN nodeLabels, collect({property: propertyName, types: propertyTypes}) as properties
-            """)
-
-            schema_parts.append("=== NODE LABELS AND PROPERTIES ===")
-            for record in node_info:
-                labels = record["nodeLabels"]
-                properties = record["properties"]
-                label_str = ":".join(labels) if labels else "Unknown"
-                props = [f"{p['property']} ({', '.join(p['types']) if p['types'] else 'any'})" 
-                        for p in properties if p['property']]
-                schema_parts.append(f"({label_str}) - Properties: {', '.join(props) if props else 'none'}")
             
-            # Get relationship types and their properties
-            rel_info = session.run("""
-                CALL db.schema.relTypeProperties()
-                YIELD relType, propertyName, propertyTypes
-                RETURN relType, collect({property: propertyName, types: propertyTypes}) as properties
-            """)
-
-            schema_parts.append("\n=== RELATIONSHIP TYPES AND PROPERTIES ===")
-            for record in rel_info:
-                rel_type = record["relType"]
-                properties = record["properties"]
-                props = [f"{p['property']} ({', '.join(p['types']) if p['types'] else 'any'})" 
-                        for p in properties if p['property']]
-                schema_parts.append(f"[{rel_type}] - Properties: {', '.join(props) if props else 'none'}")
+            try:
+                # Get node labels and their properties by sampling
+                schema_parts.append("=== NODE LABELS AND PROPERTIES ===")
+                
+                labels_result = session.run("CALL db.labels() YIELD label RETURN label")
+                labels = [record["label"] for record in labels_result]
+                
+                for label in labels:
+                    try:
+                        # Escape label for use in Cypher
+                        escaped_label = label.replace('`', '``')
+                        
+                        props_result = session.run(f"""
+                            MATCH (n:`{escaped_label}`)
+                            WITH n LIMIT 100
+                            UNWIND keys(n) as key
+                            WITH key, n[key] as value
+                            RETURN DISTINCT key, 
+                                collect(DISTINCT type(value))[0..3] as types
+                            ORDER BY key
+                        """)
+                        
+                        props = []
+                        for record in props_result:
+                            prop_name = record["key"]
+                            types = record.get("types", [])
+                            type_str = ', '.join(str(t) for t in types) if types else 'any'
+                            props.append(f"{prop_name} ({type_str})")
+                        
+                        schema_parts.append(f"({label}) - Properties: {', '.join(props) if props else 'none'}")
+                    
+                    except Exception as e:
+                        schema_parts.append(f"({label}) - Error fetching properties: {str(e)}")
+                
+                # Get relationship types and their properties
+                schema_parts.append("\n=== RELATIONSHIP TYPES AND PROPERTIES ===")
+                
+                rel_types_result = session.run("CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType")
+                rel_types = [record["relationshipType"] for record in rel_types_result]
+                
+                for rel_type in rel_types:
+                    try:
+                        # Escape relationship type for use in Cypher
+                        escaped_rel = rel_type.replace('`', '``')
+                        
+                        props_result = session.run(f"""
+                            MATCH ()-[r:`{escaped_rel}`]->()
+                            WITH r LIMIT 100
+                            UNWIND keys(r) as key
+                            WITH key, r[key] as value
+                            RETURN DISTINCT key,
+                                collect(DISTINCT type(value))[0..3] as types
+                            ORDER BY key
+                        """)
+                        
+                        props = []
+                        for record in props_result:
+                            prop_name = record["key"]
+                            types = record.get("types", [])
+                            type_str = ', '.join(str(t) for t in types) if types else 'any'
+                            props.append(f"{prop_name} ({type_str})")
+                        
+                        schema_parts.append(f"[{rel_type}] - Properties: {', '.join(props) if props else 'none'}")
+                    
+                    except Exception as e:
+                        schema_parts.append(f"[{rel_type}] - Error fetching properties: {str(e)}")
+                
+                # Get relationship patterns
+                schema_parts.append("\n=== RELATIONSHIP PATTERNS ===")
+                
+                patterns = session.run("""
+                    MATCH (start)-[rel]->(end)
+                    WITH DISTINCT labels(start) as startLabels, 
+                                type(rel) as relType, 
+                                labels(end) as endLabels
+                    RETURN startLabels, relType, endLabels
+                    LIMIT 1000
+                """)
+                
+                seen_patterns = set()
+                for record in patterns:
+                    start_labels = record["startLabels"]
+                    rel = record["relType"]
+                    end_labels = record["endLabels"]
+                    
+                    start = ":".join(start_labels) if start_labels else "Node"
+                    end = ":".join(end_labels) if end_labels else "Node"
+                    pattern = f"({start})-[:{rel}]->({end})"
+                    
+                    if pattern not in seen_patterns:
+                        schema_parts.append(pattern)
+                        seen_patterns.add(pattern)
             
-            # Get relationship patterns (which nodes connect to which)
-            patterns = session.run("""
-                CALL db.schema.visualization() YIELD nodes, relationships
-                UNWIND relationships as rel
-                RETURN DISTINCT 
-                    [label IN labels(startNode(rel)) | label] as startLabels,
-                    type(rel) as relType,
-                    [label IN labels(endNode(rel)) | label] as endLabels
-            """)
-            
-            schema_parts.append("\n=== RELATIONSHIP PATTERNS ===")
-            for record in patterns:
-                start = ":".join(record["startLabels"]) if record["startLabels"] else "Node"
-                rel = record["relType"]
-                end = ":".join(record["endLabels"]) if record["endLabels"] else "Node"
-                schema_parts.append(f"({start})-[:{rel}]->({end})")
+            except Exception as e:
+                schema_parts.append(f"Error fetching schema: {str(e)}")
+                # Fallback to minimal schema
+                schema_parts.append("\n=== BASIC SCHEMA INFO ===")
+                try:
+                    # At least get labels and relationship types
+                    labels_result = session.run("CALL db.labels() YIELD label RETURN label")
+                    labels = [record["label"] for record in labels_result]
+                    schema_parts.append(f"Node Labels: {', '.join(labels)}")
+                    
+                    rel_types_result = session.run("CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType")
+                    rel_types = [record["relationshipType"] for record in rel_types_result]
+                    schema_parts.append(f"Relationship Types: {', '.join(rel_types)}")
+                except Exception as inner_e:
+                    schema_parts.append(f"Could not fetch basic schema: {str(inner_e)}")
             
             self._schema_cache = "\n".join(schema_parts)
         
