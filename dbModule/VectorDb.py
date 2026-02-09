@@ -1,17 +1,19 @@
 import chromadb
 from langchain_chroma import Chroma
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_core.documents import Document
 from typing import List
 
 class VectorDb:
-    def __init__(self, host, port, collection, embedding_model, api_key):
-        # Use the same embedding function
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model=embedding_model,
-            google_api_key=api_key
-        )
+    def __init__(self, host, port, collection, embeddings):
+        """
+        Initialize VectorDb with ChromaDB client
         
+        Args:
+            host: ChromaDB server host
+            port: ChromaDB server port
+            collection: Collection name
+            embeddings: Embeddings model object from AI adapter
+        """
         self.collection_name = collection
         
         # Create HTTP client for remote ChromaDB server

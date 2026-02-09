@@ -3,7 +3,11 @@ import sys
 from bson import ObjectId
 from dbModule import init_db, Project, Markdown, Description
 from dbModule.VectorDb import VectorDb
-from config import chroma_config, google_config, mongo_config
+from config import (
+    chroma_config, 
+    mongo_config
+)
+from components import AIModelFactory
 from bullMQ import WorkerLoader, WorkerRegistry
 from kafkaService import ProducerHelper,TopicRegistry
 import asyncio
@@ -44,14 +48,17 @@ async def process_vectorizer_job(job, job_token):
         vectorStore = None
         # Clear collection if there are new markdowns or descriptions
         if markdowns.count() > 0 or descriptions.count() > 0:
+            # Create adapter and get embeddings
+            ai_adapter = AIModelFactory.create_adapter()
+            embeddings = ai_adapter.get_embeddings()
+            
             # Initialize vector store for this project
             print("Initializing vector store for project", project.projectName)
             vectorStore = VectorDb(
                 chroma_config["host"],
                 chroma_config["port"],
                 project.uuid,  # Using backward compatible property
-                google_config["embedding_model"],
-                google_config["api_key"]
+                embeddings
             )
             vectorStore.clear_collection()
         else:

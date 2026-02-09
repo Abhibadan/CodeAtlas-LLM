@@ -2,11 +2,14 @@ from dbModule.VectorDb import VectorDb
 from dbModule.GraphDb import GraphDb
 from dbModule import Conversation
 from bson import ObjectId
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-from config import google_config, chroma_config, neo4j_config
+from config import (
+    chroma_config, 
+    neo4j_config
+)
+from components.aiModelAdapter import AIModelFactory
 from typing import List, Dict, Any
 class RagAgent:
     prompt = """You are an expert code analysis assistant specializing in understanding complex codebases and providing actionable guidance for code modifications.
@@ -112,15 +115,25 @@ class RagAgent:
     # ])
 
     def __init__(self,data):
-        self.__vectorStore = VectorDb(chroma_config["host"],chroma_config["port"],data["project"],google_config["embedding_model"],google_config["api_key"])
+        # Create adapter for the selected provider
+        ai_adapter = AIModelFactory.create_adapter()
+        
+        # Initialize vector store with adapter's embedding model
+        embeddings = ai_adapter.get_embeddings()
+        self.__vectorStore = VectorDb(
+            chroma_config["host"],
+            chroma_config["port"],
+            data["project"],
+            embeddings
+        )
+        
         self.__graphStore = GraphDb(neo4j_config["uri"],neo4j_config["user"],neo4j_config["password"],data["project"])
         self.__chatId = ObjectId(data["chatId"])
         self.__convId = data.get("convId",None)
         self.__use_chat_history = data.get("use_chat_history", True)
-        self.__llm = ChatGoogleGenerativeAI(
-            model=google_config["chat_model"],
-            google_api_key=google_config["api_key"]
-        )
+        
+        # Get chat model from adapter
+        self.__llm = ai_adapter.get_chat_model()
 
         # Create the retrieval chain - cleanest approach with dict unpacking
         self.__hybrid_rag_chain = (

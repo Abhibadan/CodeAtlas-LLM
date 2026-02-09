@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from requestDTOs.chatDTO import ChatDTO
 from middleware.authMiddleware import AuthMiddleware
-from components.ragAgent import RagAgent
+from components import RagAgent
 from dbModule import init_db, Project, Conversation, ConversationTypeEnum, ConversationRoleEnum
 from bson import ObjectId
 import json     
