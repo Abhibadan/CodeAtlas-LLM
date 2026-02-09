@@ -84,42 +84,167 @@ class GraphDb:
         
         schema = self.get_schema()
         prompt = """You are a Neo4j Cypher query expert specializing in code dependency graph traversal. Generate a SYNTACTICALLY CORRECT Cypher query to fetch relevant code components and their relationships for code analysis.
+                
+                DATABASE SCHEMA:
+                {schema}
 
-        DATABASE SCHEMA:
-        {schema}
+                USER QUESTION: {question}
 
-        USER QUESTION: {question}
+                RELEVANT SEARCH IDS (as comma-separated string): "{node_ids_str}"
 
-        RELEVANT NODE IDs (as comma-separated string): "{node_ids_str}"
+                RELATED DOCUMENTATION: {documentation}
 
-        RELATED DOCUMENTATION: {documentation}
+                QUERY OBJECTIVE:
+                Construct a Cypher query that fetches relevant nodes and their context using semantic matching on node properties rather than internal IDs.
 
-        QUERY OBJECTIVE:
-        Construct a Cypher query that fetches relevant nodes and their context starting from the provided node IDs.
+                MATCHING STRATEGY:
+                1. Parse the search terms from RELEVANT SEARCH IDS,RELATED DOCUMENTATION and USER QUESTION to derive regex patterns
+                2. Match nodes using `eid`, `parentId`, or regex patterns on searchable fields
+                3. Use OR conditions to cast a wide net for relevant nodes
+                4. Fetch relationships and context around matched nodes
 
-        CRITICAL SYNTAX RULES:
-        1. START with: WITH split("{node_ids_str}", ",") AS startNodeIds
-        2. Then use: MATCH (n) WHERE id(n) IN startNodeIds
-        3. NEVER use WHERE inside list comprehensions.
-        4. ZERO TOLERANCE: NEVER NEST AGGREGATE FUNCTIONS. Do NOT put collect() inside another collect(). 
-           BAD: collect({ a: collect(b) }) -> THIS WILL FAIL.
-        5. FOR MULTI-LEVEL RESULTS: Use multiple WITH clauses to aggregate sequentially, OR return flat paths.
-        6. Return data in a structured format with clear aliases.
+                SEARCHABLE FIELDS FOR REGEX MATCHING:
+                - eid
+                - parentId
+                - name
+                - sourceCode
+                - parameters
+                - type
+                - subType
+                - filePath
+                - kind
 
-        SAFE MULTI-HOP PATTERN:
-        WITH split("{node_ids_str}", ",") AS startNodeIds
-        MATCH (n) WHERE id(n) IN startNodeIds
-        OPTIONAL MATCH (n)-[r1]->(n1)
-        WITH n, collect(DISTINCT {rel: r1, node: n1}) AS level1
-        OPTIONAL MATCH (n)-[]->(n1)-[r2]->(n2)
-        WITH n, level1, collect(DISTINCT {rel: r2, node: n2}) AS level2
-        RETURN n, level1, level2
 
-        OUTPUT FORMAT:
-        Generate ONLY the Cypher query without any explanations, comments, or markdown formatting.
-        Ensure the query is syntactically correct and will execute without errors.
+                CRITICAL SYNTAX RULES:
+                1. Use property-based matching, NOT id() function
+                2. Derive regex patterns from the question context and search terms
+                3. Use case-insensitive regex: =~ '(?i).*pattern.*'
+                4. Combine multiple match conditions with OR
+                5. NEVER NEST AGGREGATE FUNCTIONS
+                6. ALL variables used in collect() MUST be defined in the current MATCH clause
+                7. Use OPTIONAL MATCH for relationships to avoid losing nodes without connections
 
-        CYPHER QUERY:"""
+                QUERY STRUCTURE TEMPLATE:
+                ```
+                // Step 1: Parse search terms and create matching conditions
+                WITH "{node_ids_str}" AS searchTerms
+                WITH split(searchTerms, ",") AS terms
+
+                // Step 2: Match nodes using eid, parentId, or regex patterns
+                MATCH (n)
+                WHERE n.eid IN terms
+                OR n.parentId IN terms
+                OR ANY(term IN terms WHERE 
+                    n.name =~ ('(?i).*' + term + '.*')
+                    OR n.sourceCode =~ ('(?i).*' + term + '.*')
+                    OR n.parameters =~ ('(?i).*' + term + '.*')
+                    OR n.type =~ ('(?i).*' + term + '.*')
+                    OR n.subType =~ ('(?i).*' + term + '.*')
+                    OR n.filePath =~ ('(?i).*' + term + '.*')
+                    OR n.kind =~ ('(?i).*' + term + '.*')
+                )
+
+                // Step 3: Fetch relationships and build context
+                ...
+                ```
+
+                SAFE PATTERNS FOR RELATIONSHIPS:
+
+                PATTERN 1 - Direct relationships with regex matching:
+                ```
+                WITH "{node_ids_str}" AS searchTerms
+                WITH split(searchTerms, ",") AS terms
+                MATCH (n)
+                WHERE n.eid IN terms
+                OR n.parentId IN terms
+                OR ANY(term IN terms WHERE 
+                    n.name =~ ('(?i).*' + term + '.*')
+                    OR n.type =~ ('(?i).*' + term + '.*')
+                    OR n.filePath =~ ('(?i).*' + term + '.*')
+                )
+                OPTIONAL MATCH (n)-[r1]->(m1)
+                WITH n, collect(DISTINCT {{relationship: type(r1), target: m1}}) AS outgoing
+                OPTIONAL MATCH (n)<-[r2]-(m2)
+                WITH n, outgoing, collect(DISTINCT {{relationship: type(r2), source: m2}}) AS incoming
+                RETURN n, outgoing, incoming
+                ```
+
+                PATTERN 2 - Multi-hop with pattern comprehensions:
+                ```
+                WITH "{node_ids_str}" AS searchTerms
+                WITH split(searchTerms, ",") AS terms
+                MATCH (n)
+                WHERE n.eid IN terms
+                OR ANY(term IN terms WHERE 
+                    n.name =~ ('(?i).*' + term + '.*')
+                    OR n.sourceCode =~ ('(?i).*' + term + '.*')
+                )
+                RETURN n,
+                    [(n)-[r]->(m) | {{rel_type: type(r), node: m}}] AS direct_out,
+                    [(n)<-[r]-(m) | {{rel_type: type(r), node: m}}] AS direct_in,
+                    [(n)-[*1..2]->(m) WHERE m.type IS NOT NULL | m] AS transitive_out
+                LIMIT 100
+                ```
+
+                PATTERN 3 - Context-aware traversal:
+                ```
+                WITH "{node_ids_str}" AS searchTerms
+                WITH split(searchTerms, ",") AS terms
+                MATCH (n)
+                WHERE ANY(term IN terms WHERE 
+                    n.name =~ ('(?i).*' + term + '.*')
+                    OR n.eid = term
+                    OR n.parentId = term
+                )
+                CALL {{
+                WITH n
+                OPTIONAL MATCH (n)-[r]->(m)
+                RETURN collect({{rel: type(r), props: properties(r), target: properties(m)}}) AS rels
+                }}
+                RETURN properties(n) AS node, rels
+                LIMIT 50
+                ```
+
+                REGEX PATTERN DERIVATION GUIDELINES:
+                1. Extract key entities from the question (function names, class names, file names)
+                2. Convert camelCase/snake_case terms into flexible patterns
+                3. For code analysis, prioritize: function names, class names, method signatures
+                4. For dependency queries, focus on: import paths, module names, file paths
+                5. Use partial matching with '.*' prefix/suffix for flexibility
+
+                EXAMPLES OF PATTERN DERIVATION:
+
+                Question: "Find all functions that call getUserData"
+                → Search for: name =~ '(?i).*getUserData.*' OR sourceCode =~ '(?i).*getUserData.*'
+
+                Question: "Show dependencies of auth module"
+                → Search for: filePath =~ '(?i).*auth.*' OR name =~ '(?i).*auth.*'
+
+                Question: "Find classes implementing IUserService"
+                → Search for: type =~ '(?i).*class.*' AND sourceCode =~ '(?i).*IUserService.*'
+
+                OPTIMIZATION RULES:
+                1. Always add LIMIT clause (50-100) to prevent massive result sets
+                2. Use DISTINCT in collections to avoid duplicates
+                3. Filter by node labels if schema provides them
+                4. Use property existence checks: WHERE n.name IS NOT NULL
+                5. Consider using indexes if available on eid, name, filePath
+
+                COMMON MISTAKES TO AVOID:
+                ❌ Using id(n) instead of n.eid
+                ❌ Forgetting case-insensitive flag (?i) in regex
+                ❌ Not escaping special regex characters in search terms
+                ❌ Collecting variables that are out of scope after WITH
+                ✅ Use property-based matching with flexible regex patterns
+                ✅ Combine multiple search strategies with OR
+                ✅ Collect relationship data before WITH statements
+
+                OUTPUT FORMAT:
+                Generate ONLY the Cypher query without any explanations, comments, or markdown formatting.
+                The query must be production-ready and handle edge cases gracefully.
+                Ensure the query uses semantic matching based on the question and documentation context.
+
+                CYPHER QUERY:"""
         
         prompt = prompt.replace("{schema}", schema)
         prompt = prompt.replace("{question}", question)
