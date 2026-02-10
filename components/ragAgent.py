@@ -11,108 +11,77 @@ from config import (
 )
 from components.aiModelAdapter import AIModelFactory
 from typing import List, Dict, Any
+from components.tools import AgentTools
+from langchain.agents import create_agent
 class RagAgent:
-    prompt = """You are an expert code analysis assistant specializing in understanding complex codebases and providing actionable guidance for code modifications.
+    prompt = """You are an expert code analysis assistant with access to specialized tools for querying codebases.
+        You are provided with a code knowledge graph and a vector store of code documentation.
+        
+        TOOLS AVAILABLE:
+        You have access to two powerful tools:
+        1. **vector_search** - Search code documentation and retrieve relevant node IDs
+        2. **get_graph_schema** - Get the neo4j schema of the code knowledge graph 
+        3. **graph_query** - Neo4j graph query tool to retrieve code relationships, dependencies, and structure using proper cypher query
 
-                CONTEXT PROVIDED:
-                - Code Graph Data: {graph_context}
-                - Documentation: {doc_context}
-                - Chat History: {chat_history}
-                - User Request To Use Chat History: {use_chat_history}
+        GUIDELINES FOR TOOL USAGE:
+        1. For questions about code documentation, functions, or general information:
+        → Use vector_search first to find relevant documentation and node IDs
 
-                YOUR CAPABILITIES:
-                You have access to a comprehensive representation of the codebase including:
-                1. Module structures and their dependencies
-                2. Function/method definitions with their source code
-                3. Import relationships and component interconnections
-                4. Associated documentation and descriptive comments
-                5. Unique identifiers for tracking each code component
-                6. Provide the code snippet of the function/method/class that the user is asking about
+        2. For questions about dependencies, relationships, or code structure:
+        → Use get_graph_schema first to get the schema of the code knowledge graph
+        → Use the schema to generate a cypher query based on the user's question
+        → Use graph_query with the generated cypher query for detailed relationship analysis
 
-                YOUR RESPONSIBILITIES:
-                1. Code Understanding:
-                - Explain code functionality at various levels (module, class, function)
-                - Trace execution flows and data dependencies
-                - Identify design patterns and architectural decisions
-                - Clarify complex logic and algorithms
-                - Provide the code snippet of the function/method/class that the user is asking about
+        3. BEST PRACTICE - Sequential Tool Calls:
+        - Call vector_search to get relevant node IDs and documentation
+        - Extract the "relatedNodeIds" from the vector_search result
+        - Use get_graph_schema to get the schema of the code knowledge graph
+        - Generate a cypher query based on the user's question using the schema
+        - Pass the generated cypher query to graph_query tool
 
-                2. Code Summarization:
-                - Provide concise overviews of modules or functions
-                - Highlight key functionalities and responsibilities
-                - Explain relationships between components
-                - Summarize dependency chains and their purposes
+        4. When to skip tools:
+        - For simple conceptual questions that don't require codebase data
+        - For general programming questions not specific to this codebase
 
-                3. Modification Guidance:
-                - Suggest specific code improvements with clear rationale
-                - Identify potential refactoring opportunities
-                - Recommend best practices and design patterns
-                - Warn about potential side effects of changes
-                - Provide step-by-step modification instructions
+        YOUR RESPONSIBILITIES:
+        1. **Code Understanding**: Explain code functionality at various levels (module, class, function)
+        2. **Code Summarization**: Provide concise overviews highlighting key functionalities
+        3. **Modification Guidance**: Suggest improvements with clear rationale and step-by-step instructions
+        4. **Impact Analysis**: Identify affected components and cascading effects through dependencies
+        5. **Provide Code Snippets**: When asked, extract and display source code from the tool results
 
-                4. Impact Analysis:
-                - Identify which components will be affected by proposed changes
-                - Explain cascading effects through the dependency graph
-                - Highlight files/functions that need updating together
-                - Flag potential breaking changes
+        IMPORTANT RULES:
+        - Base all analysis on data retrieved from tools
+        - Use the relatedNodeIds as eid in the cypher query
+        - For better results, combine exact eid matching with regex pattern matching on fields like name, type, kind, sourceCode, etc. using OR clauses
+        - Don't mention internal node IDs (i.e. eid, id, etc.) in your responses to users
+        - If source code is in the graph results (property 'sourceCode'), include it when relevant
+        - Consider the entire dependency chain when suggesting modifications
+        - Flag potential breaking changes and side effects
+        - Use the chat history to provide context to the user
+        
 
-                IMPORTANT RULES:
-                1. Base all analysis strictly on the provided graph data and documentation
-                2. Reference specific node IDs when discussing components
-                3. Trace dependencies accurately using the relationship data
-                4. When suggesting modifications, consider the entire dependency chain
-                5. Be explicit about assumptions or missing information
-                6. Provide context-aware explanations based on the codebase structure
-                7. If multiple approaches exist, present trade-offs clearly
-                8. Always consider backward compatibility and existing patterns
-                9. Don't mention any id of nodes of graph database
-                10. Use Chat history only on question related to old chats
-                11. Use Chat history only on user request to use chat history
+        CODE FORMATTING:
+        When providing code examples, use markdown format:
+        ```language
+        ... code here ...
+        ```
+        Where 'language' is the programming language (python, javascript, typescript, etc.)
 
-                CODE FORMATTING RULE:
-                When providing code examples or suggestions, you MUST encapsulate ALL code blocks using standard Markdown format:
-                ```language
-                ... your code here ...
-                ```
+        RESPONSE STRUCTURE:
+        - Start with a direct answer to the user's query
+        - Use tool results to provide evidence and context
+        - Provide code snippets when relevant (extract from 'sourceCode' property in results)
+        - Explain relationships and dependencies when applicable
+        - Keep explanations clear, technical, and concise
+        - Use natural prose; avoid excessive bullet points unless requested
 
-                Where 'language' is the programming language (e.g., python, javascript, typescript, java, etc.)
+        TONE:
+        - Clear, precise, and technical
+        - Confident but acknowledge limitations
+        - Focus on actionable insights
+        """
 
-                RESPONSE STRUCTURE:
-                - Start with a direct answer to the user's query
-                - Provide relevant code context with node references
-                - Provide the code snippet if user ask for it. Code is available in graph data as property 'sourceCode'.
-                - Explain dependencies and relationships when relevant
-                - Offer actionable suggestions with clear reasoning
-                - Use structured formatting for clarity (but avoid bullet points unless requested)
-                - Keep explanations concise yet comprehensive
-                - If the user asks to modify code, provide the modified code in the specified format
-                - If the user asks to explain code, provide the explanation in the specified format
-
-                TONE:
-                - Be clear, precise, and technical
-                - Use natural prose instead of excessive bullet points
-                - Avoid over-explaining obvious concepts
-                - Focus on insights that add value
-                - Be confident but acknowledge limitations in the data
-
-                Now, analyze the provided codebase data and respond to the user's query:"""
-    __rag_prompt = ChatPromptTemplate.from_messages([
-        ("system", prompt),
-        ("human", "{question}"),
-    ])
-
-    # __rag_prompt = ChatPromptTemplate.from_messages([
-    #     ("system", """You are a helpful assistant that provides comprehensive information about people, their professional backgrounds, and relationships.
-    #     Use the following context to answer the question. The context includes:
-    #     1. Relationship information (friends, employment, directorships) from the knowledge graph
-    #     2. Detailed professional information from documents
-
-    #     Provide a natural, conversational answer that synthesizes both sources of information.
-
-    #     Context:
-    #     {context}"""),
-    #     ("human", "{question}"),
-    # ])
 
     def __init__(self,data):
         # Create adapter for the selected provider
@@ -134,49 +103,76 @@ class RagAgent:
         
         # Get chat model from adapter
         self.__llm = ai_adapter.get_chat_model()
+        
+        # Create tools
+        agent_tools = AgentTools(self.__vectorStore, self.__graphStore, self.__llm)
+        self.__tools = agent_tools.get_tools()
 
-        # Create the retrieval chain - cleanest approach with dict unpacking
-        self.__hybrid_rag_chain = (
-            (lambda x: {**self.__hybrid_retrieval(x), "question": x})
-            | self.__rag_prompt
-            | self.__llm
-            | StrOutputParser()
+        self.prompt = self.prompt.format(chat_history=self.__get_chat_history())
+        print(self.prompt)
+        # Create agent with tools using the correct API
+        rag_prompt = ChatPromptTemplate.from_messages([
+            ("system", self.prompt),
+            ("human", "{question}"),
+        ])
+        self.__agent_executor = create_agent(
+            model=self.__llm,
+            tools=self.__tools,
+            prompt=rag_prompt,
+            debug=True  # Enable verbose output
         )
     
-    def __create_hybrid_context(self, chroma_docs: str, neo4j_context: str, chatHistoryString: str) -> Dict[str, str]:
-        """Combine ChromaDB and Neo4j contexts"""
-        graph_context, doc_context, chat_history = "", "", ""
-        if neo4j_context:
-            graph_context = neo4j_context
-        
-        if chroma_docs:
-            doc_context = chroma_docs
-        
-        if chatHistoryString:
-            chat_history = chatHistoryString
-        
-        return {
-            "graph_context": graph_context,
-            "doc_context": doc_context,
-            "chat_history": chat_history,
-            "use_chat_history": self.__use_chat_history if not self.__convId else True
-        }
-
-    def __hybrid_retrieval(self, question: str):
-        vectorData = self.__vectorStore.retrieve_with_metadata(question)
-        cypherQuery = self.__graphStore.retrieve(self.__llm, question, vectorData["content"], vectorData["metadata"]["relatedNodeIds"])
-        
+    def __get_chat_history(self) -> str:
+        """Retrieve chat history for context"""
         if self.__convId:
             chatHistory = Conversation.find_by_id(ObjectId(self.__convId))
+        elif self.__use_chat_history:
+            chatHistory = Conversation.find_by_chat_id(self.__chatId, limit=6)
         else:
-            chatHistory = Conversation.find_by_chat_id(self.__chatId,limit=6)
+            chatHistory = []
         
-        chatHistoryString = "\n".join([f"{msg['role']}: {msg['content']}" for msg in chatHistory])
-
-        return self.__create_hybrid_context(vectorData["content"], cypherQuery, chatHistoryString)
+        return "\\n".join([f"{msg['role']}: {msg['content']}" for msg in chatHistory])
     
     def getRagChain(self):
-        return self.__hybrid_rag_chain
+        """Return a chain-like interface for backward compatibility"""
+        def chain_stream(question: str):
+            """Wrapper to make agent executor compatible with streaming interface"""
+            # chat_history = self.__get_chat_history()
+            
+            # # Prepend chat history to question if available
+            # full_input = question
+            # if chat_history and self.__use_chat_history:
+            #     full_input = f"Chat History:\n{chat_history}\n\nCurrent Question: {question}"
+            
+            # Run the agent
+            result = self.__agent_executor.invoke({"messages": [{"role": "user", "content": "Hi"}]})
+            print("Agent result:", result)
+            
+            # Extract the output from the agent's response
+            # create_agent returns a state with messages
+            if "messages" in result:
+                messages = result["messages"]
+                if messages:
+                    # Get the last message content
+                    last_message = messages[-1]
+                    output = last_message.content if hasattr(last_message, 'content') else str(last_message)
+                else:
+                    output = "No response generated"
+            else:
+                # Fallback if format is different
+                output = result.get("output", str(result))
+            
+            yield output
+        
+        # Create a simple object that has a stream method
+        class ChainWrapper:
+            def __init__(self, stream_func):
+                self.stream_func = stream_func
+            
+            def stream(self, question: str):
+                return self.stream_func(question)
+        
+        return ChainWrapper(chain_stream)
     
     def getVectorStore(self):
         return self.__vectorStore

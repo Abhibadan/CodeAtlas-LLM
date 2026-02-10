@@ -400,5 +400,12 @@ class GraphDb:
             raise Exception(e.__str__())
 
             
+    def retrieve_with_metadata(self,cypher_query: str) -> str:
+        """Retrieve code documentation with related node IDs"""
+        try:
+            # Use vector search to get relevant documentation and node IDs
+            return self.execute_query(cypher_query)
+        except Exception as e:
+            raise Exception(f"Error in retrieve_with_metadata: {e}")
     
     

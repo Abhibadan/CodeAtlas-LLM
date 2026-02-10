@@ -121,7 +121,7 @@ async def conversation(request: Request, data: ChatDTO = Body(...)):  # Make end
                     chunk_index += 1
                     
                     # CRITICAL: Add a small async sleep to allow the event loop to flush
-                    await asyncio.sleep(0.001)  # This forces the buffer to flush
+                    # await asyncio.sleep(0.001)  # This forces the buffer to flush
             
             # Send completion signal
             final_chunk = {
