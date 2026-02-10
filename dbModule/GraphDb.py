@@ -316,6 +316,7 @@ class GraphDb:
         try:
             response = llm.invoke(prompt)
             query = response.content.strip()
+            print("Generated Cypher query:", query)
             # Clean up the query - remove markdown code blocks if present
             if query.startswith("```"):
                 lines = query.split("\n")

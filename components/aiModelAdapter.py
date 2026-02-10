@@ -68,6 +68,7 @@ class OpenAIAdapter(AIModelAdapter):
         self.api_key = openai_config["api_key"]
         self.embedding_model_name = openai_config["embedding_model"]
         self.chat_model_name = openai_config["chat_model"]
+        self.base_url = openai_config["base_url"]
         
         if not self.api_key:
             raise ValueError("OpenAI API key is required")
@@ -76,18 +77,22 @@ class OpenAIAdapter(AIModelAdapter):
         """Return OpenAI embeddings"""
         from langchain_openai import OpenAIEmbeddings
         
+        # LMStudio compatibility: disable context length checking and dimension parameters
         return OpenAIEmbeddings(
             model=self.embedding_model_name,
-            openai_api_key=self.api_key
+            base_url=self.base_url,
+            check_embedding_ctx_length=False  # Prevent sending extra parameters to LMStudio
         )
     
     def get_chat_model(self):
         """Return OpenAI chat model"""
         from langchain_openai import ChatOpenAI
         
+            # openai_api_key=self.api_key
         return ChatOpenAI(
             model=self.chat_model_name,
-            openai_api_key=self.api_key
+            temperature=0,
+            base_url=self.base_url
         )
 
 
@@ -132,7 +137,7 @@ class AIModelFactory:
     }
     
     @classmethod
-    def create_adapter() -> AIModelAdapter:
+    def create_adapter(cls) -> AIModelAdapter:
         """
         Create an AI model adapter based on the provider
         
