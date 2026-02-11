@@ -193,10 +193,7 @@ class RagAgent:
             The query must be production-ready and handle edge cases gracefully.
             Ensure the query uses semantic matching based on the question and documentation context.
 
-            ═══════════════════════════════════════════════════════════════════════════════
-            ⚠️ CRITICAL SYNTAX RULES
-            ═══════════════════════════════════════════════════════════════════════════════
-
+            CRITICAL SYNTAX RULES:
             ✓ ALWAYS use property-based matching (n.eid), NOT id() function
             ✓ ALWAYS use case-insensitive regex: =~ '(?i).*pattern.*'
             ✓ ALWAYS combine multiple match conditions with OR
@@ -241,6 +238,8 @@ class RagAgent:
             6. If asked to modify code, provide the modified code with explanation
             7. Don't mention internal node IDs (eid) in user-facing responses
             8. Don't mention available tools in user-facing responses
+            9. Don't directly generate code snippets which are not present in the database
+            10. Ask user before generating code snippets which are not present in the database
 
             ═══════════════════════════════════════════════════════════════════════════════
             💬 CHAT HISTORY
