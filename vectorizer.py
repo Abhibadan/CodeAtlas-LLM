@@ -13,6 +13,7 @@ from kafkaService import ProducerHelper,TopicRegistry
 import asyncio
 import signal
 import logging
+from time import sleep
 logger = logging.getLogger(__name__)
 
 # Initialize MongoDB connection using MongoEngine
@@ -96,6 +97,8 @@ async def process_vectorizer_job(job, job_token):
             
             # Add document with metadata to vector store
             vectorStore.addDocument(content=cleaned_content, metadata=metadata)
+            print("Added markdown to vector store")
+            sleep(10)
         
         # Process descriptions
         for description in descriptions:
@@ -128,6 +131,8 @@ async def process_vectorizer_job(job, job_token):
             
             # Add document with metadata to vector store
             vectorStore.addDocument(content=cleaned_content, metadata=metadata)
+            print("Added description to vector store")
+            sleep(10)
         
         # Delete old markdowns and descriptions (scanVersion less than or equal to current)
         # Using MongoEngine's delete method

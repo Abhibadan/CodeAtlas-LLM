@@ -45,13 +45,18 @@ class AgentTools:
             Returns:
                 A JSON string containing:
                 - content: Relevant documentation text
-                - metadata: Related node IDs and other metadata
+                - metadata: 
+                    eids: List of node IDs related to the query
+                    fileName: Name of the files containing the documentation
+                    filePath: Path of the files containing the documentation
+                    matchType : Type of match (e.g., "module", "file", "unmatched")
+                    types : Type of the documentation (e.g., "class", "function", "variable")
             """
             try:
                 result = self.vector_db.retrieve_with_metadata(query)
                 return json.dumps({
                     "content": result.get("content", ""),
-                    "relatedNodeIds": result.get("metadata", {}).get("relatedNodeIds", [])
+                    "eids": result.get("metadata", {}).get("relatedNodeIds", [])
                 }, indent=2)
             except Exception as e:
                 return json.dumps({"error": f"Vector search failed: {str(e)}"})
@@ -75,7 +80,10 @@ class AgentTools:
         @tool
         def graph_query(cypher_query: str) -> str:
             """
-            Query the code knowledge graph to understand relationships and dependencies.
+            Execute a Cypher query on the code knowledge graph.
+            
+            ⚠️ CRITICAL: This tool requires a COMPLETE, VALID Neo4j Cypher query.
+            It does NOT accept natural language - you must construct the Cypher yourself.
             
             Use this tool when you need to:
             - Understand code dependencies and relationships
@@ -83,24 +91,32 @@ class AgentTools:
             - Analyze impact of changes across the codebase
             - Find connections between different code elements
             
-            IMPORTANT: This tool generates and executes Cypher queries dynamically.
-            For best results, first use vector_search to get relevant node IDs.
+            WORKFLOW:
+            1. Call vector_search() to get relevant node IDs
+            2. Call get_graph_schema() to understand the graph structure
+            3. Construct a valid Cypher query using the node IDs and schema
+            4. Pass the Cypher query to this tool
             
             Args:
-                query: The question or analysis you want to perform
-                documentation: Optional context from vector search (improves query accuracy)
-                node_ids: Optional comma-separated node IDs from vector search (improves query accuracy)
+                cypher_query: A complete, valid Neo4j Cypher query string
+                Example: "MATCH (n) WHERE n.eid IN ['met-123'] RETURN n LIMIT 10"
                 
             Returns:
-                Formatted results from the graph database including:
-                - Node properties (name, type, source code, etc.)
+                JSON string containing query results with:
+                - Node properties (name, type, sourceCode, filePath, etc.)
                 - Relationships between nodes
                 - Dependency chains
+                
+            Example Cypher patterns:
+            - Find node by ID: "MATCH (n) WHERE n.eid = 'met-abc123' RETURN n"
+            - Find callers: "MATCH (caller)-[:CALLS]->(target) WHERE target.eid = 'met-123' RETURN caller"
+            - Find by name: "MATCH (n) WHERE n.name =~ '(?i).*saveUser.*' RETURN n LIMIT 10"
             """
             try:
-                result = self.graph_db.retrieve_with_metadata(query)
-                return result
+                print("Cypher Query: ",cypher_query)
+                result = self.graph_db.retrieve_with_metadata(cypher_query)
+                return json.dumps(result, indent=2)
             except Exception as e:
-                return f"Graph query failed: {str(e)}"
+                return json.dumps({"error": f"Graph query failed: {str(e)}"})
         
         return [vector_search,get_graph_schema, graph_query]

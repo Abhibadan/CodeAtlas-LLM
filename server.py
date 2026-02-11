@@ -17,7 +17,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://192.168.5.80:3000", "http://localhost:5500"],
+    allow_origins=["http://192.168.5.80:3000", "http://localhost:5500", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -172,4 +172,4 @@ async def conversation(request: Request, data: ChatDTO = Body(...)):  # Make end
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=3000)
+    uvicorn.run(app, host="0.0.0.0", port=4000)
