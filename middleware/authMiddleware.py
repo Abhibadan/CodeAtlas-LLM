@@ -4,7 +4,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from jwt import decode,ExpiredSignatureError,InvalidTokenError
 from dotenv import load_dotenv
 import json
-from dbModule import User
+from dbModule.mongoDb.schemas import User
 import os
 from bson import ObjectId
 load_dotenv()

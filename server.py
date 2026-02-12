@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from requestDTOs.chatDTO import ChatDTO
 from middleware.authMiddleware import AuthMiddleware
 from components import RagAgent
-from dbModule import init_db, Project, Conversation, ConversationTypeEnum, ConversationRoleEnum
+from dbModule.mongoDb import init_db
+from dbModule.mongoDb.schemas import Project, Conversation, ConversationTypeEnum, ConversationRoleEnum
 from bson import ObjectId
 import json     
 import asyncio

@@ -1,5 +1,5 @@
 """
-MongoDB Connection Setup with MongoEngine (like Mongoose)
+MongoDB Connection Setup with MongoEngine
 """
 
 from mongoengine import connect, disconnect
@@ -20,7 +20,7 @@ class MongoDBConnection:
     @classmethod
     def connect_db(cls, database_name: str = None, host: str = None, **kwargs):
         """
-        Connect to MongoDB (like mongoose.connect())
+        Connect to MongoDB
         
         Args:
             database_name: Database name
@@ -75,11 +75,5 @@ def init_db(database_name: str = None, host: str = None):
     """
     Initialize MongoDB connection
     
-    Usage in your main app:
-        from dbModule import init_db
-        init_db()  # Uses environment variables
-        
-        # Or specify connection details
-        init_db(database_name='my_db', host='mongodb://localhost:27017/')
     """
     MongoDBConnection.connect_db(database_name, host)

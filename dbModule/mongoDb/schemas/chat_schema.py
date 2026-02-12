@@ -21,7 +21,7 @@ class Chat(Document):
 
     meta = {
         'collection': 'chats',  # Collection name
-        'strict': False,  # Allow unknown fields like __v from Mongoose
+        'strict': False, 
         'indexes': [
             'project_id',
             'user_id',
@@ -30,7 +30,7 @@ class Chat(Document):
     }
     
     def save(self, *args, **kwargs):
-        """Override save to update updatedAt timestamp (like Mongoose pre-save hook)"""
+        """Override save to update updatedAt timestamp"""
         self.updatedAt = datetime.utcnow()
         return super(Chat, self).save(*args, **kwargs)
     

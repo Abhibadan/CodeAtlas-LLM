@@ -46,7 +46,7 @@ class User(Document):
     }
     
     def save(self, *args, **kwargs):
-        """Override save to update updatedAt timestamp (like Mongoose pre-save hook)"""
+        """Override save to update updatedAt timestamp"""
         self.updatedAt = datetime.utcnow()
         return super(User, self).save(*args, **kwargs)
     

@@ -1,19 +1,9 @@
-"""
-Database Module - MongoEngine ODM (Mongoose-like)
-"""
-
-from .MongoDb import init_db, MongoDBConnection
-from .schemas import Project, ProjectStatusEnum, Markdown, Description, Conversation, ConversationTypeEnum, ConversationRoleEnum, User
+from .GraphDb import GraphDb
+from .VectorDb import VectorDb
+from . import mongoDb
 
 __all__ = [
-    "init_db",
-    "MongoDBConnection",
-    "Project",
-    "ProjectStatusEnum",
-    "Markdown",
-    "Description",
-    "Conversation",
-    "ConversationTypeEnum",
-    "ConversationRoleEnum",
-    "User"
+    "GraphDb",
+    "VectorDb",
+    "mongoDb"
 ]

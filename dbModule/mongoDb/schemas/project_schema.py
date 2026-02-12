@@ -12,7 +12,7 @@ import enum
 
 
 class ProjectStatusEnum(str, enum.Enum):
-    """Enum for project status - like Mongoose enum"""
+    """Enum for project status"""
     Active = "Active"
     Inactive = "Inactive"
     Archived = "Archived"
@@ -20,7 +20,7 @@ class ProjectStatusEnum(str, enum.Enum):
 
 class Project(Document):
     
-    # Reference fields (like Mongoose ref)
+    # Reference fields
     created_by = ObjectIdField()
     members = ListField(ObjectIdField(), default=list)
     
@@ -43,11 +43,11 @@ class Project(Document):
     is_deleted = BooleanField(default=False)
     status = StringField(choices=[s.value for s in ProjectStatusEnum], default=ProjectStatusEnum.Active.value)
     
-    # Timestamps (auto-managed like Mongoose timestamps)
+    # Timestamps
     createdAt = DateTimeField(default=datetime.utcnow)
     updatedAt = DateTimeField(default=datetime.utcnow)
     
-    # Meta configuration (like Mongoose schema options)
+    # Meta configuration
     meta = {
         'collection': 'projects',  # Collection name
         'strict': False,  # Allow unknown fields like __v from Mongoose
@@ -66,7 +66,7 @@ class Project(Document):
     }
     
     def save(self, *args, **kwargs):
-        """Override save to update updatedAt timestamp (like Mongoose pre-save hook)"""
+        """Override save to update updatedAt timestamp"""
         self.updatedAt = datetime.utcnow()
         return super(Project, self).save(*args, **kwargs)
     

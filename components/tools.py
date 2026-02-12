@@ -7,7 +7,7 @@ vector and graph databases.
 
 from langchain.tools import tool
 from typing import Dict, Any, List
-from dbModule import Conversation
+from dbModule.mongoDb.schemas import Conversation
 import json
 
 

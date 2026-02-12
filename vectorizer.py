@@ -1,8 +1,9 @@
 import json
 import sys
 from bson import ObjectId
-from dbModule import init_db, Project, Markdown, Description
-from dbModule.VectorDb import VectorDb
+from dbModule import VectorDb
+from dbModule.mongoDb import init_db
+from dbModule.mongoDb.schemas import Project, Markdown, Description
 from config import (
     chroma_config, 
     mongo_config
