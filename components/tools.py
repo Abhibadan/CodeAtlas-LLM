@@ -6,14 +6,15 @@ vector and graph databases.
 """
 
 from langchain.tools import tool
-from typing import Dict, Any
+from typing import Dict, Any, List
+from dbModule import Conversation
 import json
 
 
 class AgentTools:
     """Container for agent tools with access to database instances"""
     
-    def __init__(self, vector_db, graph_db, llm):
+    def __init__(self, vector_db, graph_db, llm, chatId):
         """
         Initialize agent tools with database instances
         
@@ -25,6 +26,7 @@ class AgentTools:
         self.vector_db = vector_db
         self.graph_db = graph_db
         self.llm = llm
+        self.chatId = chatId
     
     def get_tools(self):
         """Return list of tools for the agent"""
@@ -113,10 +115,24 @@ class AgentTools:
             - Find by name: "MATCH (n) WHERE n.name =~ '(?i).*saveUser.*' RETURN n LIMIT 10"
             """
             try:
-                print("Cypher Query: ",cypher_query)
                 result = self.graph_db.retrieve_with_metadata(cypher_query)
                 return json.dumps(result, indent=2)
             except Exception as e:
                 return json.dumps({"error": f"Graph query failed: {str(e)}"})
         
-        return [vector_search,get_graph_schema, graph_query]
+        @tool
+        def get_chat_history(max_messages: int = 4) -> List[str]:
+            """
+            Returns the chat history as a list of messages.
+            
+            Args:
+                max_messages: Number of previous messages to retrieve (default: 4)
+                
+            Returns:
+                List of previous chat messages in the format: ["User: <user_message>", "Assistant: <assistant_message>"]
+            """
+            chatHistory = Conversation.find_by_chat_id(self.chatId, limit=max_messages)
+            print("Chat History: ",chatHistory)
+            return [f"{chat['role']}: {chat['content']}" for chat in chatHistory]
+
+        return [vector_search,get_graph_schema, graph_query, get_chat_history]

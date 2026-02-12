@@ -96,14 +96,14 @@ async def conversation(request: Request, data: ChatDTO = Body(...)):  # Make end
         "chatId": data.cid,
         "convId": data.convId   
     })
-    
+
     async def generate_stream():
         try:
             chunk_index = 0
             full_response = ""
             
-            # Stream chunks from RAG agent
-            for chunk in agent.getRagChain().stream(question):
+            # Stream chunks from RAG agent using async for
+            async for chunk in agent.getRagChain(question):
                 if chunk:
                     full_response += chunk
                     # Format as SSE with JSON payload
@@ -120,8 +120,8 @@ async def conversation(request: Request, data: ChatDTO = Body(...)):  # Make end
                     yield f"data: {json.dumps(chunk_data)}\n\n"
                     chunk_index += 1
                     
-                    # CRITICAL: Add a small async sleep to allow the event loop to flush
-                    # await asyncio.sleep(0.001)  # This forces the buffer to flush
+                    # Add a small async sleep to allow the event loop to flush
+                    await asyncio.sleep(0.001)
             
             # Send completion signal
             final_chunk = {
@@ -136,7 +136,7 @@ async def conversation(request: Request, data: ChatDTO = Body(...)):  # Make end
             yield f"data: {json.dumps(final_chunk)}\n\n"
             yield f"data: [DONE]\n\n"
 
-            # store in db
+            # Store in db
             conversation = Conversation(
                 chat_id=ObjectId(data.cid),
                 user_id=request.state.user.id,
@@ -148,6 +148,8 @@ async def conversation(request: Request, data: ChatDTO = Body(...)):  # Make end
 
         except Exception as e:
             print(f"Error in stream: {e}")
+            import traceback
+            traceback.print_exc()
             error_chunk = {
                 "id": f"chunk-0",
                 "index": 0,
